@@ -1,16 +1,116 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Violeta Sarabia</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Violeta Sarabia</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;background:#000;color:#fff;font-family:"Courier New",Courier,monospace}
+body{padding-bottom:43px}
+.ticker{height:46px;overflow:hidden;border-bottom:1px solid #fff;display:flex;align-items:center;white-space:nowrap}
+.ticker-track{display:inline-block;padding-left:100%;animation:ticker 25s linear infinite}
+.ticker-text{display:inline-block;padding-right:80px;font-size:14px}
+@keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-100%)}}
+header{min-height:195px;border-bottom:1px solid #fff;display:grid;grid-template-columns:280px 1fr;align-items:center;padding:28px 12px 24px}
+.site-title{margin:0;font-size:clamp(42px,4.3vw,64px);font-weight:400;line-height:1.12}
+nav{display:flex;justify-content:space-between;align-items:center;gap:30px}
+nav a{color:#fff;text-decoration:none;font-size:clamp(18px,1.7vw,27px);white-space:nowrap}
+nav a:hover{text-decoration:underline}
+.entries-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));width:100%}
+.entry{aspect-ratio:1/1;min-width:0;border-right:1px solid #fff;border-bottom:1px solid #fff;padding:42px 12px 20px;overflow:hidden;color:#fff;text-decoration:none;display:flex;align-items:flex-start}
+.entry:nth-child(5n){border-right:none}
+.entry:hover{background:#fff;color:#000}
+.entry-text{margin:0;font-size:clamp(15px,1.35vw,21px);line-height:1.38}
+footer{position:fixed;z-index:20;left:0;right:0;bottom:0;min-height:43px;padding:10px 12px;border-top:1px solid #fff;background:#000}
+footer p{margin:0;font-size:12px;line-height:1.3}
+@media(max-width:1000px){
+header{grid-template-columns:220px 1fr}
+.entries-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.entry:nth-child(5n){border-right:1px solid #fff}
+.entry:nth-child(3n){border-right:none}
+}
+@media(max-width:650px){
+.ticker{height:40px}.ticker-text{font-size:12px}
+header{display:block;min-height:auto;padding:24px 12px 20px}
+.site-title{margin-bottom:28px;font-size:42px}
+nav{display:grid;grid-template-columns:1fr 1fr;gap:18px 20px}
+nav a{font-size:17px}
+.entries-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.entry:nth-child(3n),.entry:nth-child(5n){border-right:1px solid #fff}
+.entry:nth-child(2n){border-right:none}
+.entry{padding:28px 10px 15px}
+.entry-text{font-size:15px;line-height:1.35}
+}
+</style>
 </head>
-
 <body>
 
-    <h1>Violeta Sarabia</h1>
+<div class="ticker">
+  <div class="ticker-track">
+    <span class="ticker-text">Esto de aquí es una banda de texto en movimiento, como la de las noticias. Una especie de Header con curiosidades que se actualizan diariamente, por ejemplo.</span>
+    <span class="ticker-text">Esto de aquí es una banda de texto en movimiento, como la de las noticias. Una especie de Header con curiosidades que se actualizan diariamente, por ejemplo.</span>
+  </div>
+</div>
 
-    <p>Este sitio está en construcción.</p>
+<header>
+  <h1 class="site-title">Violeta<br>Sarabia</h1>
+  <nav>
+    <a href="#">Ficción</a>
+    <a href="#">Opinión</a>
+    <a href="#">Psicoeducación</a>
+    <a href="#">Experimentación</a>
+  </nav>
+</header>
+
+<main class="entries-grid">
+
+  <!-- DUPLICA O ELIMINA ESTOS BLOQUES SEGÚN QUIERAS -->
+  <a class="entry" href="#">
+    <p class="entry-text">Este es un texto de muestra para simular el extracto de cada entrada, como si fuese una preview. Mostrará el dibujo textual del contenido mediante Pretext.</p>
+  </a>
+
+  <a class="entry" href="#">
+    <p class="entry-text">Este es un texto de muestra para simular el extracto de cada entrada, como si fuese una preview. Mostrará el dibujo textual del contenido mediante Pretext.</p>
+  </a>
+
+  <a class="entry" href="#">
+    <p class="entry-text">Este es un texto de muestra para simular el extracto de cada entrada, como si fuese una preview. Mostrará el dibujo textual del contenido mediante Pretext.</p>
+  </a>
+
+  <a class="entry" href="#">
+    <p class="entry-text">Este es un texto de muestra para simular el extracto de cada entrada, como si fuese una preview. Mostrará el dibujo textual del contenido mediante Pretext.</p>
+  </a>
+
+  <a class="entry" href="#">
+    <p class="entry-text">Este es un texto de muestra para simular el extracto de cada entrada, como si fuese una preview. Mostrará el dibujo textual del contenido mediante Pretext.</p>
+  </a>
+
+  <a class="entry" href="#">
+    <p class="entry-text">Este es un texto de muestra para simular el extracto de cada entrada, como si fuese una preview. Mostrará el dibujo textual del contenido mediante Pretext.</p>
+  </a>
+
+  <a class="entry" href="#">
+    <p class="entry-text">Este es un texto de muestra para simular el extracto de cada entrada, como si fuese una preview. Mostrará el dibujo textual del contenido mediante Pretext.</p>
+  </a>
+
+  <a class="entry" href="#">
+    <p class="entry-text">Este es un texto de muestra para simular el extracto de cada entrada, como si fuese una preview. Mostrará el dibujo textual del contenido mediante Pretext.</p>
+  </a>
+
+  <a class="entry" href="#">
+    <p class="entry-text">Este es un texto de muestra para simular el extracto de cada entrada, como si fuese una preview. Mostrará el dibujo textual del contenido mediante Pretext.</p>
+  </a>
+
+  <a class="entry" href="#">
+    <p class="entry-text">Este es un texto de muestra para simular el extracto de cada entrada, como si fuese una preview. Mostrará el dibujo textual del contenido mediante Pretext.</p>
+  </a>
+
+</main>
+
+<footer>
+  <p>Esto de aquí es el Footer visible en todo momento. Aquí irán tus redes sociales, el copyright de la web y otra información relevante.</p>
+</footer>
 
 </body>
 </html>
