@@ -1,116 +1,275 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Violeta Sarabia — ficción, opinión y psicoeducación.">
 <title>Violeta Sarabia</title>
 <style>
+:root{--bg:#090909;--fg:#eee;--muted:#858585;--line:#292929;--pad:clamp(20px,4vw,58px);--header-h:54px}
 *{box-sizing:border-box}
-html,body{margin:0;background:#000;color:#fff;font-family:"Courier New",Courier,monospace}
-body{padding-bottom:43px}
-.ticker{height:46px;overflow:hidden;border-bottom:1px solid #fff;display:flex;align-items:center;white-space:nowrap}
-.ticker-track{display:inline-block;padding-left:100%;animation:ticker 25s linear infinite}
-.ticker-text{display:inline-block;padding-right:80px;font-size:14px}
-@keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-100%)}}
-header{min-height:195px;border-bottom:1px solid #fff;display:grid;grid-template-columns:280px 1fr;align-items:center;padding:28px 12px 24px}
-.site-title{margin:0;font-size:clamp(42px,4.3vw,64px);font-weight:400;line-height:1.12}
-nav{display:flex;justify-content:space-between;align-items:center;gap:30px}
-nav a{color:#fff;text-decoration:none;font-size:clamp(18px,1.7vw,27px);white-space:nowrap}
-nav a:hover{text-decoration:underline}
-.entries-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));width:100%}
-.entry{aspect-ratio:1/1;min-width:0;border-right:1px solid #fff;border-bottom:1px solid #fff;padding:42px 12px 20px;overflow:hidden;color:#fff;text-decoration:none;display:flex;align-items:flex-start}
-.entry:nth-child(5n){border-right:none}
-.entry:hover{background:#fff;color:#000}
-.entry-text{margin:0;font-size:clamp(15px,1.35vw,21px);line-height:1.38}
-footer{position:fixed;z-index:20;left:0;right:0;bottom:0;min-height:43px;padding:10px 12px;border-top:1px solid #fff;background:#000}
-footer p{margin:0;font-size:12px;line-height:1.3}
-@media(max-width:1000px){
-header{grid-template-columns:220px 1fr}
-.entries-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
-.entry:nth-child(5n){border-right:1px solid #fff}
-.entry:nth-child(3n){border-right:none}
+html{scroll-behavior:smooth;background:var(--bg)}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:"Courier New",Courier,monospace;font-weight:400}
+a{color:inherit;text-decoration:none}
+
+.site-header{
+  position:fixed;z-index:20;top:0;left:0;width:100%;height:var(--header-h);
+  padding:0 var(--pad);display:flex;align-items:center;justify-content:space-between;
+  background:rgba(9,9,9,.94);border-bottom:1px solid var(--line);
+  transform:translateY(-110%);transition:transform .45s ease;
+  backdrop-filter:blur(8px)
 }
-@media(max-width:650px){
-.ticker{height:40px}.ticker-text{font-size:12px}
-header{display:block;min-height:auto;padding:24px 12px 20px}
-.site-title{margin-bottom:28px;font-size:42px}
-nav{display:grid;grid-template-columns:1fr 1fr;gap:18px 20px}
-nav a{font-size:17px}
-.entries-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-.entry:nth-child(3n),.entry:nth-child(5n){border-right:1px solid #fff}
-.entry:nth-child(2n){border-right:none}
-.entry{padding:28px 10px 15px}
-.entry-text{font-size:15px;line-height:1.35}
+.site-header.visible{transform:translateY(0)}
+.header-name{font-size:14px;white-space:nowrap}
+.header-nav{display:flex;gap:clamp(15px,3vw,40px)}
+.header-nav a{font-size:12px;color:var(--muted);transition:color .2s}
+.header-nav a:hover{color:var(--fg)}
+
+.intro{
+  min-height:68vh;padding:38px var(--pad) 50px;
+  display:flex;flex-direction:column;justify-content:flex-end;
+  border-bottom:1px solid var(--line)
+}
+.intro h1{
+  font-size:clamp(48px,9vw,130px);line-height:.86;font-weight:400;
+  letter-spacing:-.08em;margin:0 0 30px;max-width:1000px
+}
+.intro p{font-size:13px;color:var(--muted);margin:0;max-width:520px;line-height:1.6}
+
+.entries{max-width:1500px;margin:0 auto;padding:70px var(--pad) 0}
+.entries-heading{
+  display:flex;justify-content:space-between;align-items:baseline;
+  margin-bottom:22px;border-bottom:1px solid var(--line);
+  padding-bottom:12px;font-size:11px;color:var(--muted)
+}
+
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+
+.entry{
+  aspect-ratio:1/1;border:1px solid var(--line);padding:22px;
+  display:flex;flex-direction:column;justify-content:flex-end;
+  position:relative;overflow:hidden;
+  background:var(--bg);color:var(--fg);
+  transition:background .2s ease,color .2s ease,border-color .2s ease
+}
+.entry:hover{background:#fff;color:#000;border-color:#fff}
+.entry-number{
+  position:absolute;top:18px;right:19px;color:#555;font-size:10px;
+  transition:color .2s ease
+}
+.entry:hover .entry-number{color:#777}
+.entry-title{
+  font-size:clamp(18px,2vw,28px);line-height:1.05;margin-bottom:15px;
+  max-width:90%;letter-spacing:-.04em
+}
+.entry-excerpt{
+  font-size:11px;line-height:1.5;color:#8f8f8f;max-width:95%;
+  transition:color .2s ease
+}
+.entry:hover .entry-excerpt{color:#222}
+
+footer{
+  margin-top:65px;border-top:1px solid var(--line);
+  padding:24px var(--pad) 32px;
+  display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
+  color:var(--muted);font-size:11px
+}
+.footer-copy{justify-self:start}
+.footer-pages{justify-self:center;display:flex;align-items:center;gap:14px}
+.footer-pages a{padding:2px 3px;transition:color .2s}
+.footer-pages a:hover,.footer-pages .current{color:var(--fg)}
+.footer-links{justify-self:end;display:flex;gap:25px}
+.footer-links a:hover{color:var(--fg)}
+
+@media(max-width:760px){
+  .site-header{
+    height:auto;min-height:54px;align-items:flex-start;flex-direction:column;
+    padding-top:12px;padding-bottom:12px
+  }
+  .header-nav{width:100%;overflow-x:auto;padding-bottom:2px;gap:22px}
+  .intro{min-height:70vh}
+  .grid{grid-template-columns:repeat(2,1fr)}
+  .entry{padding:15px}
+  .entry-title{font-size:17px}
+  .entry-excerpt{font-size:10px}
+  footer{grid-template-columns:1fr;justify-items:center;gap:18px}
+  .footer-copy,.footer-pages,.footer-links{justify-self:center}
+}
+@media(max-width:500px){
+  .grid{grid-template-columns:1fr}
+  .entry{aspect-ratio:1/.82}
+  .intro h1{font-size:55px}
 }
 </style>
 </head>
 <body>
-
-<div class="ticker">
-  <div class="ticker-track">
-    <span class="ticker-text">Esto de aquí es una banda de texto en movimiento, como la de las noticias. Una especie de Header con curiosidades que se actualizan diariamente, por ejemplo.</span>
-    <span class="ticker-text">Esto de aquí es una banda de texto en movimiento, como la de las noticias. Una especie de Header con curiosidades que se actualizan diariamente, por ejemplo.</span>
-  </div>
-</div>
-
-<header>
-  <h1 class="site-title">Violeta<br>Sarabia</h1>
-  <nav>
-    <a href="#">Ficción</a>
-    <a href="#">Opinión</a>
-    <a href="#">Psicoeducación</a>
-    <a href="#">Experimentación</a>
+<header class="site-header" id="siteHeader">
+  <a class="header-name" href="#top">Violeta Sarabia</a>
+  <nav class="header-nav" aria-label="Categorías">
+    <a href="#ficcion">Ficción</a>
+    <a href="#opinion">Opinión</a>
+    <a href="#psicoeducacion">Psicoeducación</a>
   </nav>
 </header>
 
-<main class="entries-grid">
+<main id="top">
+<section class="intro">
+  <h1>Violeta<br>Sarabia</h1>
+  <p>Ficción, opinión y psicoeducación.<br>Un archivo de ideas, observaciones y experimentos.</p>
+</section>
 
-  <!-- DUPLICA O ELIMINA ESTOS BLOQUES SEGÚN QUIERAS -->
-  <a class="entry" href="#">
-    <p class="entry-text">Este es un texto de muestra para simular el extracto de cada entrada, como si fuese una preview. Mostrará el dibujo textual del contenido mediante Pretext.</p>
-  </a>
+<section class="entries" id="entries">
+  <div class="entries-heading">
+    <span>Últimas entradas</span>
+    <span>24 — 43</span>
+  </div>
 
-  <a class="entry" href="#">
-    <p class="entry-text">Este es un texto de muestra para simular el extracto de cada entrada, como si fuese una preview. Mostrará el dibujo textual del contenido mediante Pretext.</p>
-  </a>
+  <div class="grid">
 
-  <a class="entry" href="#">
-    <p class="entry-text">Este es un texto de muestra para simular el extracto de cada entrada, como si fuese una preview. Mostrará el dibujo textual del contenido mediante Pretext.</p>
-  </a>
+    <a class="entry" href="#" data-slug="tolerancia">
+      <span class="entry-number">24</span>
+      <span class="entry-title">Techo rojo</span>
+      <span class="entry-excerpt">Las primeras veces que me alojé en hoteles se me quedaban grabadas las habitaciones, la disposición, el mobiliario, la iluminación, las vistas.</span>
+    </a>
 
-  <a class="entry" href="#">
-    <p class="entry-text">Este es un texto de muestra para simular el extracto de cada entrada, como si fuese una preview. Mostrará el dibujo textual del contenido mediante Pretext.</p>
-  </a>
+    <a class="entry" href="#" data-slug="europa">
+      <span class="entry-number">25</span>
+      <span class="entry-title">Europa</span>
+      <span class="entry-excerpt">En Europa, uno de los satélites de Júpiter, hay gigantescos y esporádicos géiseres de agua. Ese lejano mundo azul oscuro, hostil e impenetrable, se me antoja calmo y sencillo.</span>
+    </a>
 
-  <a class="entry" href="#">
-    <p class="entry-text">Este es un texto de muestra para simular el extracto de cada entrada, como si fuese una preview. Mostrará el dibujo textual del contenido mediante Pretext.</p>
-  </a>
+    <a class="entry" href="#" data-slug="amor-natural">
+      <span class="entry-number">26</span>
+      <span class="entry-title">Amor natural</span>
+      <span class="entry-excerpt">Schopenhauer decía que los animales no sienten amor, solo necesidad de reproducirse. Pienso que se equivocaba porque ese concepto traducido a algo básico, primitivo y carente de…</span>
+    </a>
 
-  <a class="entry" href="#">
-    <p class="entry-text">Este es un texto de muestra para simular el extracto de cada entrada, como si fuese una preview. Mostrará el dibujo textual del contenido mediante Pretext.</p>
-  </a>
+    <a class="entry" href="#" data-slug="jupiter-i">
+      <span class="entry-number">27</span>
+      <span class="entry-title">Júpiter</span>
+      <span class="entry-excerpt">El planeta Júpiter es azotado por tormentas que duran siglos, ráfagas de viento de 650 km/h y una temperatura media de 152 ºC.</span>
+    </a>
 
-  <a class="entry" href="#">
-    <p class="entry-text">Este es un texto de muestra para simular el extracto de cada entrada, como si fuese una preview. Mostrará el dibujo textual del contenido mediante Pretext.</p>
-  </a>
+    <a class="entry" href="#" data-slug="el-campo">
+      <span class="entry-number">28</span>
+      <span class="entry-title">El campo</span>
+      <span class="entry-excerpt">El campo es amplio, los pastos verdes y el cielo azul nunca terminan, están ahí para siempre. Da calma porque no cambian.</span>
+    </a>
 
-  <a class="entry" href="#">
-    <p class="entry-text">Este es un texto de muestra para simular el extracto de cada entrada, como si fuese una preview. Mostrará el dibujo textual del contenido mediante Pretext.</p>
-  </a>
+    <a class="entry" href="#" data-slug="dreucol-hasta-morir">
+      <span class="entry-number">29</span>
+      <span class="entry-title">Dreucol - Hasta morir</span>
+      <span class="entry-excerpt">Normalmente entendemos que una sala de exposiciones, una galería o un museo son los únicos lugares que acogen obras de arte y que esta es la forma de presentación óptima.</span>
+    </a>
 
-  <a class="entry" href="#">
-    <p class="entry-text">Este es un texto de muestra para simular el extracto de cada entrada, como si fuese una preview. Mostrará el dibujo textual del contenido mediante Pretext.</p>
-  </a>
+    <a class="entry" href="#" data-slug="1">
+      <span class="entry-number">30</span>
+      <span class="entry-title">Versos</span>
+      <span class="entry-excerpt">De una calamidad, una oportunidad pero hacer leña del árbol caído ¿es ecologismo, o agravio? A diferencia de Narciso, no amo a quien me usa.</span>
+    </a>
 
-  <a class="entry" href="#">
-    <p class="entry-text">Este es un texto de muestra para simular el extracto de cada entrada, como si fuese una preview. Mostrará el dibujo textual del contenido mediante Pretext.</p>
-  </a>
+    <a class="entry" href="#" data-slug="abstraccion-a-las-cuatro-ruedas">
+      <span class="entry-number">31</span>
+      <span class="entry-title">Abstracción a las cuatro ruedas</span>
+      <span class="entry-excerpt">Los juguetes son una pieza clave en la infancia, y los coches en miniatura representan tanto diversión como ingeniería. La automoción no deja de ser una industria más.</span>
+    </a>
 
+    <a class="entry" href="#" data-slug="ser-pintor-ii">
+      <span class="entry-number">32</span>
+      <span class="entry-title">Ser pintor (II)</span>
+      <span class="entry-excerpt">—Ha decidido que quiere ser pintor, pero ¿se ha planteado qué estilo va a practicar? —Siento cierta devoción por el cubismo.</span>
+    </a>
+
+    <a class="entry" href="#" data-slug="piantado">
+      <span class="entry-number">33</span>
+      <span class="entry-title">Piantado</span>
+      <span class="entry-excerpt">El material de mi cabeza adopta de la brea su espesura. Con lánguidas brazas lucho contra una marea en calma.</span>
+    </a>
+
+    <a class="entry" href="#" data-slug="cuando-no-luchas-vences">
+      <span class="entry-number">34</span>
+      <span class="entry-title">Cuando no luchas, vences</span>
+      <span class="entry-excerpt">La mejor defensa no es un buen ataque. El boxeo y la mente operan en direcciones opuestas, por eso la manera en la que procesamos la información no se rige por las reglas de un deporte.</span>
+    </a>
+
+    <a class="entry" href="#" data-slug="el-contenido">
+      <span class="entry-number">35</span>
+      <span class="entry-title">El contenido</span>
+      <span class="entry-excerpt">Pensamos que por construir un polideportivo van a aparecer los jóvenes. Pensamos que al crear el continente va a aparecer el contenido.</span>
+    </a>
+
+    <a class="entry" href="#" data-slug="lidia-y-marcos">
+      <span class="entry-number">36</span>
+      <span class="entry-title">Lidia y Marcos</span>
+      <span class="entry-excerpt">Lidia y Marcos no eran estériles pero decidieron adoptar una hija para evitar la transmisión genética de su mal carácter.</span>
+    </a>
+
+    <a class="entry" href="#" data-slug="opaco">
+      <span class="entry-number">37</span>
+      <span class="entry-title">Opaco</span>
+      <span class="entry-excerpt">Un extraño ser que en mí habita y que al buscarlo me evita, cuando le arrojo cierta luz la sombra se quita.</span>
+    </a>
+
+    <a class="entry" href="#" data-slug="por-que-no-deberias-ir-a-terapia">
+      <span class="entry-number">38</span>
+      <span class="entry-title">Por qué no deberías ir a terapia</span>
+      <span class="entry-excerpt">Si el título fuese “por qué deberías ir a terapia” sería una imposición externa y no me he sacado el súper cotizado Máster de Psicología General Sanitaria para dar consejos.</span>
+    </a>
+
+    <a class="entry" href="#" data-slug="nicodemo">
+      <span class="entry-number">39</span>
+      <span class="entry-title">Nicodemo</span>
+      <span class="entry-excerpt">Por lo general, la gente suele escribirle cartas a sus mascotas cuando se han ido, a modo de despedida u homenaje.</span>
+    </a>
+
+    <a class="entry" href="#" data-slug="las-montanas-sagradas">
+      <span class="entry-number">40</span>
+      <span class="entry-title">Las Montañas Sagradas</span>
+      <span class="entry-excerpt">El 13 de octubre de 1972, un aparato que cubría la ruta Montevideo-Santiago extravió su trayectoria y se precipitó sobre la cordillera de los Andes.</span>
+    </a>
+
+    <a class="entry" href="#" data-slug="un-mensaje-al-cosmos">
+      <span class="entry-number">41</span>
+      <span class="entry-title">Un mensaje al cosmos</span>
+      <span class="entry-excerpt">Hace unas cuantas noches observé el cielo desde la ventana buscando las escasas estrellas que la contaminación lumínica permite vislumbrar.</span>
+    </a>
+
+    <a class="entry" href="#" data-slug="de-quien-te-enamoras-cuando-tienes-un-flechazo">
+      <span class="entry-number">42</span>
+      <span class="entry-title">¿De quién te enamoras cuando tienes un flechazo?</span>
+      <span class="entry-excerpt">El tiempo desacelera y termina por detenerse, como un tren que encuentra su destino a mitad del trayecto.</span>
+    </a>
+
+    <a class="entry" href="#" data-slug="mi-mejor-amiga-es-octogenaria">
+      <span class="entry-number">43</span>
+      <span class="entry-title">Mi mejor amiga es octogenaria</span>
+      <span class="entry-excerpt">Conocí a Mariló en el ascensor. Hace casi 6 años me mudé a un bloque de pisos en el centro de la ciudad.</span>
+    </a>
+
+  </div>
+</section>
 </main>
 
 <footer>
-  <p>Esto de aquí es el Footer visible en todo momento. Aquí irán tus redes sociales, el copyright de la web y otra información relevante.</p>
+  <span class="footer-copy">Violeta Sarabia (c) 2026</span>
+
+  <nav class="footer-pages" aria-label="Paginación">
+    <a class="current" href="#" aria-current="page">1</a>
+    <a href="#">2</a>
+    <a href="#">3</a>
+  </nav>
+
+  <nav class="footer-links" aria-label="Redes sociales">
+    <a href="#" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+    <a href="#" target="_blank" rel="noopener noreferrer">Instagram</a>
+  </nav>
 </footer>
 
+<script>
+const header=document.getElementById('siteHeader');
+const intro=document.querySelector('.intro');
+const observer=new IntersectionObserver(([entry])=>{header.classList.toggle('visible',!entry.isIntersecting)},{threshold:.05});
+observer.observe(intro);
+</script>
 </body>
 </html>
