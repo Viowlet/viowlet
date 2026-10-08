@@ -39,7 +39,9 @@ h1{font-size:64px;line-height:.95;font-weight:400;letter-spacing:0;margin:0 0 70
 .article-content mark{background:none;color:#d4504a}
 footer{border-top:1px solid var(--line);padding:24px var(--pad) 32px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
 color:var(--muted);font-size:13px}
-.footer-copy{justify-self:end}
+.footer-copy{justify-self:start}
+.footer-back{justify-self:end;transition:color .2s}
+.footer-back:hover{color:var(--fg)}
 @media(max-width:600px){
   main{padding-top:105px}
   h1{margin-bottom:48px;font-size:48px}
@@ -50,7 +52,6 @@ color:var(--muted);font-size:13px}
 <body>
 <header class="site-header">
   <a class="header-name" href="index.html">Violeta Sarabia</a>
-  <a class="header-back" href="index.html">Volver</a>
 </header>
 <main>
   <h1>Contacto</h1>
@@ -63,9 +64,9 @@ color:var(--muted);font-size:13px}
   </article>
 </main>
 <footer>
-  <span></span>
-  <span></span>
   <span class="footer-copy">Violeta Sarabia © 2026</span>
+  <span></span>
+  <a class="footer-back" href="index.html">Volver</a>
 </footer>
 </body>
 </html>
