@@ -909,7 +909,7 @@ const TREX = Object.assign({
       transform: `translateX(${dir * 100}%)`, zIndex: 3 });
     document.body.appendChild(next);
     window.AsciiArt && window.AsciiArt.mount(next);
-    const opts = { duration: 850, easing: 'cubic-bezier(.65,0,.35,1)', fill: 'forwards' };
+    const opts = { duration: 2400, easing: 'cubic-bezier(.65,0,.35,1)', fill: 'forwards' };
     grid.animate([{ transform: 'translateX(0)' }, { transform: `translateX(${-dir * 100}%)` }], opts);
     next.animate([{ transform: `translateX(${dir * 100}%)` }, { transform: 'translateX(0)' }], opts).onfinish = () => {
       grid.replaceChildren(...next.childNodes);                 // las celdas (con sus dibujos ya en marcha) pasan a la cuadrícula
