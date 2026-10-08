@@ -149,8 +149,8 @@ footer{
   <span class="footer-copy">Violeta Sarabia © 2026</span>
 
   <nav class="footer-pages" aria-label="Paginación">
-    <a class="current" href="#" aria-current="page">1</a>
-    <a href="#">2</a>
+    <a class="current" href="index.html" aria-current="page">1</a>
+    <a href="pagina-2.html">2</a>
     <a href="#">3</a>
   </nav>
 
@@ -351,7 +351,7 @@ function renderFrame(shape, st, out) {
 
 /* ===== Forma: el número 85 (dos cifras en 3D, texto por delante y por detrás) ===== */
 const capsule = (a, b, r) => {
-  const bx = b[0] - a[0], by = b[1] - a[1], bz = b[2] - a[2], l2 = bx * bx + by * by + bz * bz;
+  const bx = b[0] - a[0], by = b[1] - a[1], bz = b[2] - a[2], l2 = Math.max(1e-6, bx * bx + by * by + bz * bz);
   return (x, y, z) => {
     const px = x - a[0], py = y - a[1], pz = z - a[2];
     const h = Math.max(0, Math.min(1, (px * bx + py * by + pz * bz) / l2));
@@ -464,14 +464,16 @@ const ARCHERY = Object.assign({
   center: [-0.2, -0.2, 0], radius: 2.3, fit: [3.3, 2.7], idle: 'sway', sway: [0.3, 0.35, 0.5], swing: 0.9,
   frame(t) {
     const PHI = 0.6, c = Math.cos(PHI), s = Math.sin(PHI), D = 1.25, H = [0.6, 0.4], O = [H[0] - D * c, H[1] - D * s];
-    const p = ((t + 1.1) / 3.6) % 1, fp = smooth01(p / 0.62), L = 0.95, xt0 = -1.1, xt1 = D - 0.2 - L, xt = xt0 + (xt1 - xt0) * fp;
+    const p = ((t + 1.1) / 3.6) % 1, fp = smooth01(p / 0.62), L0 = 0.95, xt0 = -1.1, xt1 = D - 0.2 - L0;
+    // tras clavarse, la flecha se hunde en el corazón: la punta sigue entrando y la cola la alcanza hasta desaparecer
+    const sink = smooth01((p - 0.62) / 0.2), L = L0 * (1 - sink), xt = xt0 + (xt1 - xt0) * fp + L0 * sink + 0.12 * sink, gone = sink > 0.97;
     const bump = p > 0.62 ? Math.exp(-(p - 0.62) * 12) * 0.13 : 0, k = 1.22 * (1 + 0.03 * Math.sin(t * 4.5) + bump);
     const R = 0.72, th = 60 * Math.PI / 180, grip = -0.75, cx = grip - R, rb = 0.095;
     const tipx = cx + R * Math.cos(th), tipy = R * Math.sin(th), e0 = [tipx, tipy], e1 = [tipx, -tipy];
     const string = capsule([tipx, tipy, 0], [tipx, -tipy, 0], 0.04), gripC = capsule([grip, -0.16, 0], [grip, 0.16, 0], 0.13);
     const shaft = capsule([xt, 0, 0], [xt + L - 0.1, 0, 0], 0.075), tip = rcone([xt + L - 0.24, 0, 0], [xt + L, 0, 0], 0.17, 0.01);
     const fins = [ellipsoid(xt + 0.1, 0.13, 0, 0.15, 0.1, 0.02), ellipsoid(xt + 0.1, -0.13, 0, 0.15, 0.1, 0.02), ellipsoid(xt + 0.1, 0, 0.13, 0.15, 0.02, 0.1), ellipsoid(xt + 0.1, 0, -0.13, 0.15, 0.02, 0.1)];
-    const arrow = group(xt + 0.5, 0, 0, 0.75, (X, Y, Z) => Math.min(shaft(X, Y, Z), tip(X, Y, Z), fins[0](X, Y, Z), fins[1](X, Y, Z), fins[2](X, Y, Z), fins[3](X, Y, Z)));
+    const arrow = gone ? () => 1e9 : group(xt + 0.5, 0, 0, 0.75, (X, Y, Z) => Math.min(shaft(X, Y, Z), tip(X, Y, Z), fins[0](X, Y, Z), fins[1](X, Y, Z), fins[2](X, Y, Z), fins[3](X, Y, Z)));
     const bowArrow = (x, y, z) => {
       const dx = x - O[0], dy = y - O[1], X = dx * c + dy * s, Y = -dx * s + dy * c;
       let d;
@@ -538,29 +540,35 @@ const MOUNTAINS = {
   }
 };
 
-/* ===== Forma: un diván (cabecero alto y enrollado a un lado, pie abierto y bajo) ===== */
+/* ===== Forma: un diván tipo chaise longue (brazo enrollado a la izquierda, respaldo que baja en curva, pie abierto) ===== */
 const COUCH = Object.assign({
-  center: [-0.12, 0.66, 0], radius: 1.9, basePitch: 0.36, fit: [2.8, 1.85], idle: 'sway', sway: [0.5, 0.4, 0.5],
+  center: [-0.05, 0.68, 0], radius: 1.9, basePitch: 0.22, fit: [3.2, 2.0], idle: 'sway', sway: [0.12, 0.28, 0.5],
   frame() {
     if (this._f) return this._f;
-    // asiento inclinado: alto en el cabecero, baja hacia el pie
-    const seat = (x, y, z) => rbox(0, 0.56 + 0.085 * (-x - 0.1), 0, 1.2, 0.17, 0.42, 0.13)(x, y, z);
-    const frame = rbox(0, 0.32, 0, 1.14, 0.1, 0.37, 0.05);
-    // respaldo: solo cubre el tercio del cabecero y se va muriendo hacia el pie
-    const backHi = rbox(-0.72, 1.06, -0.33, 0.52, 0.42, 0.12, 0.11), backLo = rbox(-0.02, 0.84, -0.33, 0.35, 0.2, 0.1, 0.09);
-    const roll = capsule([-1.2, 0.95, -0.3], [-1.2, 0.95, 0.3], 0.3);   // cabecero enrollado
-    const pillow = ellipsoid(-0.78, 1.0, 0.06, 0.3, 0.15, 0.27);
-    const legs = [[-1.0, -0.28], [-1.0, 0.28], [1.0, -0.26], [1.0, 0.26]].map(([x, z], i) => rcone([x, i < 2 ? 0.3 : 0.2, z], [x, 0.0, z], 0.085, 0.05));
+    const plinth = rbox(0.02, 0.32, 0, 1.24, 0.11, 0.42, 0.06);              // base
+    const seat = rbox(0.14, 0.52, 0.01, 1.12, 0.11, 0.42, 0.1);              // cojín del asiento
+    const panel = rbox(-1.12, 0.62, 0, 0.14, 0.38, 0.42, 0.08);              // brazo: panel vertical
+    const scroll = capsule([-1.2, 0.98, -0.4], [-1.2, 0.98, 0.42], 0.17);    // brazo: voluta enrollada hacia fuera
+    const flare = capsule([-1.26, 0.6, 0.42], [-1.2, 0.95, 0.42], 0.07);     // borde delantero del brazo, abriéndose
+    // respaldo: sube desde el brazo, hace una joroba y baja en curva hasta el asiento
+    const backH = x => x < -0.5 ? 1.32 - 0.22 * Math.pow(Math.min(1, (-0.5 - x) / 0.6), 2)
+                                : 0.6 + 0.72 * (1 - smooth01((x + 0.5) / 1.3));
+    const back = (x, y, z) => {
+      const d = Math.max(Math.max((y - backH(x)) * 0.7, 0.42 - y), Math.max(Math.abs(z + 0.3) - 0.12, Math.max(x - 0.85, -1.15 - x)));
+      return d - 0.05;
+    };
+    const legs = [[-1.08, -0.32, -1], [-1.08, 0.32, -1], [1.1, -0.32, 1], [1.1, 0.32, 1]].map(([x, z, sx]) => rcone([x, 0.24, z], [x + sx * 0.06, 0.0, z], 0.07, 0.045));
     this._f = { sdf: (x, y, z) => {
-      let d = smin(seat(x, y, z), frame(x, y, z), 0.05);
-      d = smin(d, backHi(x, y, z), 0.09); d = smin(d, backLo(x, y, z), 0.12);
-      d = smin(d, roll(x, y, z), 0.1); d = smin(d, pillow(x, y, z), 0.06);
+      let d = smin(plinth(x, y, z), seat(x, y, z), 0.04);
+      d = smin(d, panel(x, y, z), 0.08); d = smin(d, scroll(x, y, z), 0.1); d = smin(d, flare(x, y, z), 0.05);
+      d = smin(d, back(x, y, z), 0.1);
       for (let i = 0; i < 4; i++) d = Math.min(d, legs[i](x, y, z));
       return Math.max(d, -y);
     } };
     return this._f;
   }
-}, planar({ x0: -1.55, width: 3.0, z0: -0.55, depth: 1.1, top: 1.6, height: 1.7 }));
+}, planar({ x0: -1.5, width: 2.9, z0: -0.5, depth: 1.0, top: 1.45, height: 1.5 }));
+
 /* ===== Forma: boxeador golpeando un saco ===== */
 const BOXER = Object.assign({
   center: [0.28, 1.25, 0], radius: 2.0, fit: [2.95, 2.5], idle: 'sway', sway: [0.45, 0.4, 0.5], swing: 0.85,
