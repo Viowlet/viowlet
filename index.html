@@ -65,6 +65,8 @@ a.entry:hover{background:#fff;color:#000}
 a.entry:hover .entry-art canvas,a.entry:focus-visible .entry-art canvas{filter:invert(1)}
 a.entry:focus-visible{background:#fff;color:#000;outline:none}
 .entry-title{position:relative;z-index:1}
+.entry-art.full{position:absolute;top:16px;right:16px;bottom:16px;left:16px;width:auto;margin:0}
+.entry-art.full + .entry-title{align-self:flex-start;background:inherit;padding:2px 8px 2px 0;transition:background .2s ease}
 
 /* PIE (estilo anterior, fijo) */
 footer{
@@ -91,6 +93,7 @@ footer{
   .intro-info{max-width:none;padding-top:0}
   .grid{grid-template-columns:minmax(0,1fr);grid-template-rows:none;min-height:0}
   .entry{padding:12px;min-height:92vw}
+  .entry-art.full{top:12px;right:12px;bottom:12px;left:12px}
   footer{padding-top:12px;padding-bottom:14px;font-size:14px}
   .footer-pages{gap:6px}
 }
@@ -135,7 +138,7 @@ footer{
   <a class="entry" href="entries/cuando-no-luchas-vences.html" data-slug="cuando-no-luchas-vences" data-shape="boxer">
     <span class="entry-title">Cuando no luchas, vences</span>
   </a>
-  <a class="entry" href="entries/piantado.html" data-slug="piantado" data-shape="wave">
+  <a class="entry" href="entries/piantado.html" data-slug="piantado" data-shape="trex">
     <span class="entry-title">Piantado</span>
   </a>
   <!-- Huecos reservados: al tener una entrada, cambia el <div> por <a class="entry" href="..."> -->
@@ -606,69 +609,63 @@ const BOXER = Object.assign({
   }
 }, planar({ x0: -1.65, width: 3.1, z0: -0.6, depth: 1.2, top: 2.5, height: 2.6 }));
 
-/* ===== Forma: ola rompiendo en tubo, con espuma y gotas de letras (referencia: GIF de la ola) ===== */
-const WAVE = Object.assign({
-  center: [0.02, 1.08, 0], radius: 2.3, fit: [3.25, 2.3], idle: 'sway', sway: [0.05, 0.2, 0.4], swing: 0.5,
+/* ===== Forma: un T-rex caminando a dos patas (paso en bucle) ===== */
+const TREX = Object.assign({
+  center: [-0.12, 0.88, 0], radius: 1.9, fit: [2.72, 1.85], idle: 'sway', sway: [0.25, 0.25, 0.45], fullCell: true,
   frame(t) {
-    const base = 0.16, x0 = -1.6, xc = 0.12;
-    const breathe = Math.sin(t * 1.25), H = 1.6 + 0.04 * breathe;
-    // el labio: arco que nace en la cresta, pasa por arriba y cae hacia la derecha
-    const R = 0.44 + 0.02 * breathe, lcx = xc + 0.4, lcy = H - 0.4;
-    const aStart = 2.55, aEnd = -0.62 - 0.12 * breathe;                // de la cresta a la punta del labio
-    const tipX = lcx + R * Math.cos(aEnd), tipY = lcy + R * Math.sin(aEnd);
-    const hBack = x => base + (H - base) * Math.pow(Math.max(0, (x - x0) / (xc - x0)), 1.9);   // lomo
-    const hFace = x => base + (H - 0.12 - base) * Math.pow(Math.max(0, 1 - (x - xc) / 0.5), 0.55); // cara cóncava bajo el labio
-    const mound = (x, y, z) => {
-      const h = x <= xc ? hBack(x) : hFace(x);
-      const rip = 0.03 * Math.sin(x * 9 + z * 3 - t * 2.2);
-      return Math.max(Math.max(y - h - rip, base - 0.12 - y), Math.max(Math.abs(z) - 0.6, Math.max(x0 - 0.05 - x, x - (xc + 0.5)))) * 0.75;
+    const ph = t * 3.0, bob = 0.035 * Math.cos(2 * ph), pitchB = 0.05 * Math.sin(2 * ph);
+    const by = 0.9 + bob, cb = Math.cos(pitchB), sb = Math.sin(pitchB);
+    // postura más erguida: el tronco, la cabeza y la cola giran alrededor de la cadera; además, un leve cabeceo al andar
+    const UP = 0.2, HC = Math.cos(0.19), HS = Math.sin(0.19), ca = Math.cos(UP + pitchB), sa = Math.sin(UP + pitchB), px0 = 0.02, py0 = by - 0.12;
+    const rot = (x, y) => { const dx = x - px0, dy = y - py0; return [dx * ca + dy * sa + px0, -dx * sa + dy * ca + py0]; };
+    // cuerpo, cuello, cabeza y mandíbula
+    const body = ellipsoid(0, by, 0, 0.56, 0.31, 0.27), belly = ellipsoid(0.08, by - 0.12, 0, 0.36, 0.22, 0.24);
+    const neck = rcone([0.42, by + 0.12, 0], [0.7, by + 0.42, 0], 0.21, 0.15);
+    const jawOpen = 0.06 + 0.06 * Math.max(0, Math.sin(t * 1.1));
+    const skull = ellipsoid(0.92, by + 0.53, 0, 0.32, 0.15, 0.15), snout = ellipsoid(1.12, by + 0.5, 0, 0.16, 0.1, 0.12);
+    const jaw = ellipsoid(0.98, by + 0.36 - jawOpen, 0, 0.27, 0.065, 0.12);
+    // cola: cadena de conos, se mece al andar
+    const tw = 0.06 * Math.sin(ph);
+    const T0 = [-0.42, by + 0.05, 0], T1 = [-0.9, by - 0.04, tw * 0.5], T2 = [-1.28, by - 0.24, tw], T3 = [-1.5, by - 0.56, tw * 1.6];   // cola larga, doblada hacia abajo
+    const tail = [rcone(T0, T1, 0.25, 0.16), rcone(T1, T2, 0.16, 0.09), rcone(T2, T3, 0.09, 0.03)];
+    // bracitos
+    const arm = side => { const s0 = [0.45, by - 0.02, side * 0.2], e = [0.58, by - 0.16, side * 0.24], h = [0.7, by - 0.1, side * 0.22];
+      const a1 = capsule(s0, e, 0.045), a2 = capsule(e, h, 0.035); return (x, y, z) => Math.min(a1(x, y, z), a2(x, y, z)); };
+    const armL = arm(1), armR = arm(-1);
+    // patas: cinemática inversa (rodilla hacia delante, como las aves)
+    const L1 = 0.4, L2 = 0.4;
+    const leg = (side, off) => {
+      const p = ph + off, hip = [0.02, by - 0.12, side * 0.2];
+      const fx = 0.04 - 0.3 * Math.cos(p), fy = 0.1 + Math.max(0, 0.17 * Math.sin(p));
+      let dx = fx - hip[0], dy = fy - hip[1]; const d = Math.min(Math.hypot(dx, dy), L1 + L2 - 0.02);
+      const ux = dx / Math.hypot(dx, dy), uy = dy / Math.hypot(dx, dy);
+      const a = (L1 * L1 - L2 * L2 + d * d) / (2 * d), h = Math.sqrt(Math.max(0, L1 * L1 - a * a));
+      const kx = hip[0] + ux * a + uy * h, ky = hip[1] + uy * a - ux * h;   // la articulación se dobla hacia atrás, como en las aves
+      const ax = hip[0] + ux * d, ay = hip[1] + uy * d;
+      const thigh = rcone(hip, [kx, ky, side * 0.21], 0.27, 0.15), shin = rcone([kx, ky, side * 0.21], [ax, ay, side * 0.22], 0.14, 0.09);
+      const foot = ellipsoid(ax + 0.13, Math.max(0.055, ay - 0.02), side * 0.22, 0.23, 0.065, 0.12);
+      return (x, y, z) => Math.min(thigh(x, y, z), shin(x, y, z), foot(x, y, z));
     };
-    const sea = (x, y, z) => Math.max(Math.max(y - base - 0.02 * Math.sin(x * 6 - t * 2.4 + z * 2), -y), Math.max(Math.abs(z) - 0.6, Math.abs(x) - 1.62)) * 0.8;
-    const lip = (x, y, z) => {
-      const dx = x - lcx, dy = y - lcy, a = Math.atan2(dy, dx);
-      let d;
-      if (a <= aStart && a >= aEnd) {
-        const k = (aStart - a) / (aStart - aEnd);                        // 0 en la cresta, 1 en la punta
-        d = Math.abs(Math.hypot(dx, dy) - R) - (0.17 - 0.11 * k);
-      } else d = Math.hypot(x - tipX, y - tipY) - 0.06;
-      return Math.max(d, Math.abs(z) - 0.6);
-    };
-    // ----- partículas: cada gota es una letra -----
-    const P = [];
-    const frac = v => v - Math.floor(v), rnd = i => frac(Math.sin(i * 127.1 + 311.7) * 43758.5453);
-    const onPath = s => {                                               // camino de la cresta: lomo → arco del labio
-      if (s < 0.35) { const x = -0.75 + (xc + 0.75) * (s / 0.35); return [x, hBack(x) + 0.07]; }
-      const a = aStart - (aStart - aEnd) * ((s - 0.35) / 0.65);
-      return [lcx + (R + 0.15) * Math.cos(a), lcy + (R + 0.15) * Math.sin(a)];
-    };
-    for (let i = 0; i < 42; i++) {                                      // burbujas que recorren la cresta
-      const s = frac(t * 0.16 + rnd(i)), q = onPath(s);
-      P.push([q[0] + (rnd(i + 40) - 0.5) * 0.08, q[1] + (rnd(i + 80) - 0.5) * 0.08, (rnd(i + 120) - 0.5) * 1.0, 5, i * 7]);
-    }
-    for (let i = 0; i < 22; i++) {                                      // gotas que saltan de la cresta y caen
-      const rate = 0.55 + rnd(i + 200) * 0.5, u = frac(t * rate + rnd(i + 230)), tau = u * 1.25;
-      const q = onPath(0.3 + rnd(i + 260) * 0.45);
-      const vx = 0.15 + rnd(i + 290) * 0.55, vy = 0.75 + rnd(i + 320) * 0.7;
-      const px = q[0] + vx * tau, py = q[1] + 0.05 + vy * tau - 1.5 * tau * tau;
-      if (py < base + 0.05) continue;
-      P.push([px, py, (rnd(i + 350) - 0.5) * 0.9, u < 0.7 ? 5 : 3, i * 11 + 3]);
-    }
-    for (let i = 0; i < 95; i++) {                                      // la masa de espuma donde rompe el labio
-      const ang = rnd(i + 400) * TAU + t * (0.6 + rnd(i + 430)) * (i % 2 ? 1 : -1);
-      const rr = Math.sqrt(rnd(i + 460)), up = frac(t * (0.3 + rnd(i + 490) * 0.4) + rnd(i + 520));
-      const cx = tipX + 0.32, cy = base + 0.42;
-      P.push([cx + Math.cos(ang) * rr * 0.62 + up * 0.14, cy + Math.sin(ang) * rr * 0.5 + up * 0.28 - 0.12, (rnd(i + 550) - 0.5) * 1.0, 3 + ((i + Math.floor(t * 6)) % 3), i * 5 + 1]);
-    }
-    for (let i = 0; i < 14; i++) {                                      // espuma que se desliza por la cara de la ola
-      const u = frac(t * 0.3 + rnd(i + 600)), x = -1.2 + u * 1.25;
-      P.push([x, base + (hBack(x) - base) * (0.25 + rnd(i + 630) * 0.5), 0.62, 2 + (i % 2), i * 13 + 5]);
-    }
+    const legL = leg(1, 0), legR = leg(-1, Math.PI);
+    const eyes = [[0.98, by + 0.6, 0.13, 0.045], [0.98, by + 0.6, -0.13, 0.045]];
     return {
-      particles: P,
-      sdf: (x, y, z) => Math.min(smin(mound(x, y, z), lip(x, y, z), 0.1), sea(x, y, z))
+      eyes,
+      sdf: (x0, y0, z) => {
+        const [x, y] = rot(x0, y0);
+        let d = smin(body(x, y, z), belly(x, y, z), 0.12);
+        d = smin(d, neck(x, y, z), 0.12);
+        // la cabeza se mantiene horizontal aunque el tronco esté erguido
+        const hx0 = x - 0.7, hy0 = y - (by + 0.42), hx = hx0 * HC - hy0 * HS + 0.7, hy = hx0 * HS + hy0 * HC + by + 0.42;
+        d = smin(d, smin(skull(hx, hy, z), snout(hx, hy, z), 0.08), 0.08);
+        d = Math.min(d, jaw(hx, hy, z));
+        d = smin(d, tail[0](x, y, z), 0.12); d = smin(d, tail[1](x, y, z), 0.06); d = smin(d, tail[2](x, y, z), 0.04);
+        d = smin(d, armL(x, y, z), 0.04); d = smin(d, armR(x, y, z), 0.04);
+        d = smin(d, legL(x0, y0, z), 0.1); d = smin(d, legR(x0, y0, z), 0.1);
+        return Math.max(d, -y0);
+      }
     };
   }
-}, planar({ x0: -1.65, width: 3.3, z0: -0.65, depth: 1.3, top: 2.3, height: 2.4 }));
+}, planar({ x0: -1.55, width: 2.95, z0: -0.4, depth: 0.8, top: 1.85, height: 1.95 }));
 
 
 /* ===== Navegador: lienzo, animación e interacción ===== */
@@ -678,7 +675,7 @@ const WAVE = Object.assign({
   const ALPHA = [0, .42, .56, .7, .85, 1];      // niveles de brillo
   const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const TEXTS = JSON.parse(document.getElementById('ascii-text').textContent);
-  const SHAPES = { cat: CAT, n85: N85, saturn: SATURN, archery: ARCHERY, mountains: MOUNTAINS, couch: COUCH, boxer: BOXER, wave: WAVE };   // data-shape="cat" → CAT, etc. Añade aquí las demás formas.
+  const SHAPES = { cat: CAT, n85: N85, saturn: SATURN, archery: ARCHERY, mountains: MOUNTAINS, couch: COUCH, boxer: BOXER, trex: TREX };   // data-shape="cat" → CAT, etc. Añade aquí las demás formas.
 
   /* PRETEXT: toda la medición de texto pasa por esta función. Fixedsys es monoespaciada,
      así que basta una medida. Si más adelante usas una fuente proporcional (como en la demo
@@ -697,6 +694,7 @@ const WAVE = Object.assign({
       const wrap = document.createElement('div'); wrap.className = 'entry-art'; wrap.setAttribute('aria-hidden', 'true');
       this.canvas = document.createElement('canvas'); wrap.appendChild(this.canvas);
       el.insertBefore(wrap, el.firstChild);
+      if (shape.fullCell) wrap.classList.add('full');   // el dibujo usa toda la celda; el título queda encima, abajo a la izquierda
       this.wrap = wrap; this.ctx = this.canvas.getContext('2d');
       this.yaw = (shape.sway || [0.5])[0]; this.vel = 0; this.pitch = 0; this.pitchT = 0; this.hover = false;
       this.t = Math.random() * 10; this.visible = true; this.acc = 0; this.cost = 0;
