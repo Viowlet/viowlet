@@ -106,9 +106,9 @@ footer{
   <div class="intro-info">
     <p>Nací en un lugar y tengo cierta edad, escribo desde hace tiempo sobre algunos temas:</p>
     <nav class="intro-nav" aria-label="Secciones">
-      <a href="#ficcion">Ficción</a>
-      <a href="#reflexion">Reflexión</a>
-      <a href="#psicoeducacion">Psicoeducación</a>
+      <a href="ficcion.html">Ficción</a>
+      <a href="reflexion.html">Reflexión</a>
+      <a href="psicoeducacion.html">Psicoeducación</a>
     </nav>
   </div>
 </header>
@@ -595,56 +595,73 @@ const BOXER = Object.assign({
   }
 }, planar({ x0: -1.65, width: 3.1, z0: -0.6, depth: 1.2, top: 2.5, height: 2.6 }));
 
-/* ===== Forma: una ola que rompe y se rehace, en bucle ===== */
+/* ===== Forma: ola a la manera de Hokusai: la cresta se enrosca, se aplasta hacia delante y vuelve a alzarse ===== */
 const WAVE = {
-  center: [-0.1, 0.86, 0], radius: 2.1, fit: [2.9, 1.95], idle: 'sway', sway: [0.35, 0.3, 0.45], swing: 0.7,
+  center: [0.1, 1.0, 0], radius: 2.3, fit: [3.4, 2.15], idle: 'sway', sway: [0.3, 0.26, 0.4], swing: 0.6,
   blocks(S, cw, lh) {
-    return [{ cols: Math.ceil(3.2 * S / cw) + 1, rows: Math.ceil(1.9 * S / lh) + 2 },
-            { cols: Math.max(24, Math.round(TAU * 0.5 * S / cw)), rows: Math.ceil(1.4 * S / lh) + 2 }];
+    return [{ cols: Math.ceil(3.2 * S / cw) + 1, rows: Math.ceil(2.0 * S / lh) + 2 },
+            { cols: Math.max(26, Math.round(TAU * 0.46 * S / cw)), rows: Math.ceil(1.5 * S / lh) + 2 }];
   },
   glyph(px, py, pz, nx, ny, nz, g, f) {
-    if (px > f.lipX) {                                // la cresta que voltea: el texto la envuelve
+    if (px > f.cx - 0.1 && py > f.base) {              // la voluta: el texto gira con ella
       const b = g.blocks[1];
-      let u = (Math.atan2(py - f.lipY, px - f.lipX) + TAU) / TAU; u -= Math.floor(u);
-      const row = Math.max(0, Math.floor((0.6 - pz) / g.rowH));
+      let u = (Math.atan2(py - f.cy, px - f.cx) + TAU) / TAU; u -= Math.floor(u);
+      const row = Math.max(0, Math.floor((0.62 - pz) / g.rowH));
       return b.lines[row % b.lines.length][Math.min(b.T - 1, Math.floor(u * b.T))];
     }
-    const b = g.blocks[0];                            // cuerpo de la ola: texto plano
-    const col = Math.floor((px + 1.7) / (g.cw / g.S)), row = Math.max(0, Math.floor((1.35 - py) / g.rowH));
+    const b = g.blocks[0];                             // el lomo: texto en líneas, como las vetas del grabado
+    const col = Math.floor((px + 1.6) / (g.cw / g.S)), row = Math.max(0, Math.floor((1.75 - py) / g.rowH));
     return b.lines[row % b.lines.length][((col % b.T) + b.T) % b.T];
   },
   frame(t) {
-    const P = 4.6, p = (t % P) / P;                   // 0 = levantándose, 0.55 = rompiendo, 1 = de nuevo plana
-    const rise = p < 0.5 ? smooth01(p / 0.5) : smooth01(1 - (p - 0.5) / 0.5);
-    const curl = p > 0.38 && p < 0.86 ? smooth01((p - 0.38) / 0.22) * smooth01(1 - Math.max(0, p - 0.64) / 0.22) : 0;
-    const H = 0.42 + 1.12 * rise, lipX = 0.5 + 0.5 * curl, lipY = 0.25 + H * (0.95 - 0.12 * curl);
-    const tube = capsule([lipX, lipY, -0.62], [lipX, lipY, 0.62], 0.26 + 0.1 * curl);   // el tubo de la cresta
-    const crest = capsule([lipX + 0.35 * curl, lipY - 0.18 * curl, -0.6], [lipX + 0.35 * curl, lipY - 0.18 * curl, 0.6], 0.12 * curl + 0.02);
-    const face = (x, y, z) => {
-      // ladera de la ola: sube hacia la cresta y se riza en la parte alta
-      const u = Math.max(0, Math.min(1, (x + 1.55) / (lipX + 1.55)));
-      const prof = Math.pow(u, 2.1 + 1.4 * curl);
-      const h = 0.1 + (lipY - 0.1) * prof + 0.05 * Math.sin(z * 2.6 + t * 0.9) * u;
-      const lean = 0.18 * curl * prof;                 // la cara se inclina hacia delante al romper
-      const dy = y - h + lean * (y - 0.1);
-      return Math.max(Math.max(Math.max(dy * 0.78, -y + 0.02), Math.abs(z) - 0.62), Math.max(-1.55 - x, x - lipX)) - 0.06;
+    // ciclo: se alza (0), se enrosca, se aplasta hacia delante (+x) y vuelve a resurgir
+    const P = 5.2, p = (t % P) / P;
+    const grow = smooth01(Math.min(1, p / 0.34));                        // alzarse
+    const curl = smooth01(Math.max(0, Math.min(1, (p - 0.22) / 0.26)));  // enroscarse
+    const flat = smooth01(Math.max(0, Math.min(1, (p - 0.52) / 0.26)));  // aplastarse hacia delante
+    const back = smooth01(Math.max(0, Math.min(1, (p - 0.80) / 0.20)));  // resurgir
+    const up = Math.max(0.22, grow - flat * 0.85 + back * 0.98);                   // altura efectiva
+    const roll = Math.max(0, curl - flat * 0.75 + back * 0.4);           // cuánto está enroscada
+    const push = flat * (1 - back) * 1.0;                                // desplazamiento hacia delante al romper
+    const H = 0.3 + 1.28 * up;
+    // centro de la voluta y radio: al aplastarse se estira hacia delante y pierde altura
+    const cx = 0.26 + 0.52 * roll + push * 0.62, cy = 0.2 + (H - 0.22) * (1 - 0.26 * flat), R = 0.17 + 0.26 * roll;
+    const base = 0.1;
+    const lip = (x, y, z) => {                        // la voluta: un anillo que al avanzar se estira y aplasta
+      const sx = 1 + 1.05 * push, sy = 1 / (1 + 0.55 * push), k = Math.max(sx, 1 / sy);
+      const dx = (x - cx) / sx, dy = (y - cy) / sy;
+      const ring = Math.abs(Math.hypot(dx, dy) - R) - (0.17 + 0.07 * roll);
+      return Math.max(ring / k, Math.abs(z) - 0.62);
     };
-    const foam = [];
-    if (curl > 0.25) for (let i = 0; i < 5; i++) {     // espuma que salta al romper
-      const k = (i + 1) / 6, a = (curl - 0.25) / 0.75;
-      foam.push(ellipsoid(lipX + 0.3 + a * (0.3 + k * 0.7), lipY - 0.1 - a * a * (0.3 + k * 0.9), (k - 0.5) * 0.9, 0.11 + 0.05 * k, 0.09, 0.11));
+    // los dedos de espuma del grabado, que se alargan al romper
+    const claws = [];
+    const nC = 4;
+    for (let i = 0; i < nC; i++) {
+      const k = i / (nC - 1), ang = (1.05 - 1.5 * k) + roll * 0.7 - push * 1.1;
+      const len = (0.3 + 0.26 * k) * (0.35 + 0.9 * roll + 0.5 * push);
+      const ox = cx + Math.cos(ang) * (R + 0.14), oy = cy + Math.sin(ang) * (R + 0.14);
+      claws.push(rcone([ox, oy, (k - 0.5) * 0.85], [ox + Math.cos(ang - 0.5) * len, oy + Math.sin(ang - 0.5) * len * (1 - 0.7 * push), (k - 0.5) * 0.95], 0.1, 0.012));
     }
+    const body = (x, y, z) => {
+      // lámina curva: el lomo de la ola, no un bloque macizo
+      const u = Math.max(0, Math.min(1, (x + 1.6) / (cx + 1.6)));
+      const prof = Math.pow(u, 2.3 + 1.3 * roll);
+      const h = base + (cy - base) * prof + 0.055 * Math.sin(z * 2.7 + t * 0.8) * u;
+      const thick = 0.1 + 0.17 * u;                      // más gruesa cerca de la voluta
+      const d = Math.abs(y - h + thick) - thick;
+      return Math.max(Math.max(d, base - 0.1 - y), Math.max(Math.abs(z) - 0.62, Math.max(x - cx, -1.6 - x))) - 0.05;
+    };
     return {
-      lipX: lipX - 0.12, lipY,
+      cx, cy, base,
       sdf: (x, y, z) => {
-        let d = smin(face(x, y, z), tube(x, y, z), 0.18);
-        d = smin(d, crest(x, y, z), 0.1);
-        for (let i = 0; i < foam.length; i++) d = smin(d, foam[i](x, y, z), 0.09);
-        return Math.max(d, -y + 0.02);
+        let d = smin(body(x, y, z), lip(x, y, z), 0.17);
+        for (let i = 0; i < claws.length; i++) d = smin(d, claws[i](x, y, z), 0.1);
+        return Math.max(d, base - 0.08 - y);
       }
     };
   }
 };
+
 
 /* ===== Navegador: lienzo, animación e interacción ===== */
 (() => {
