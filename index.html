@@ -58,6 +58,19 @@ a{color:inherit;text-decoration:none}
 a.entry:hover{background:#fff;color:#000}
 .entry-title{font-size:16px;line-height:1.1;max-width:90%}
 
+
+/* DIBUJO DE TEXTO (Pretext): lienzo dentro de la cuadrícula; al hacer hover se invierte con la misma transición que el fondo */
+.entry-art{position:relative;flex:1 1 auto;min-height:0;width:100%;margin-bottom:8px;pointer-events:none}
+.entry-art canvas{position:absolute;inset:0;width:100%;height:100%;display:block;filter:invert(0);transition:filter .2s ease}
+a.entry:hover .entry-art canvas,a.entry:focus-visible .entry-art canvas{filter:invert(1)}
+a.entry:focus-visible{background:#fff;color:#000;outline:none}
+.entry-title{position:relative;z-index:1}
+@media(max-width:760px){
+  /* celdas bajas: el dibujo ocupa toda la celda y el título se superpone con fondo propio */
+  .entry-art{position:absolute;inset:0;margin:0;flex:none}
+  .entry-title{align-self:flex-start;background:inherit;padding:2px 6px 2px 0;transition:background .2s ease}
+}
+
 /* PIE (estilo anterior, fijo) */
 footer{
   border-top:1px solid var(--line);
@@ -115,7 +128,7 @@ footer{
   <a class="entry" href="entries/las-montanas-sagradas.html" data-slug="las-montanas-sagradas">
     <span class="entry-title">Las Montañas Sagradas</span>
   </a>
-  <a class="entry" href="entries/nicodemo.html" data-slug="nicodemo">
+  <a class="entry" href="entries/nicodemo.html" data-slug="nicodemo" data-shape="cat">
     <span class="entry-title">Nicodemo</span>
   </a>
   <a class="entry" href="entries/por-que-no-deberias-ir-a-terapia.html" data-slug="por-que-no-deberias-ir-a-terapia">
@@ -145,5 +158,289 @@ footer{
   </nav>
 </footer>
 
+<script type="application/json" id="ascii-text">{"nicodemo": "Por lo general, la gente suele escribirle cartas a sus mascotas cuando se han ido, a modo de despedida u homenaje. Quisiera cultivar el hábito de hablar sobre nuestros peludos amigos (escamosos amigos para quien tenga peces o lagartos) antes de perecer, con el objetivo de poner en orden nuestro vínculo con ellos . En terapia Gestalt hay una técnica llamada la “silla vacía”, que consiste en colocar delante tuya una silla o cojín e imaginar que está sentada una persona a la que necesitas decirle algo. Es un acting , pero te quedas muy a gusto y sirve para sacar de la cabeza esas conversaciones que nunca tendrán lugar y en las que siempre sales ganando . En este caso, como no hay medios para comunicarme de manera compleja con mi gato, voy a hacer como si me dirigiese a él y decirle tanto lo bueno como lo malo, porque otra cosa que se tiende a hacer en los mensajes póstumos es dulcificar a la criatura , obviando todas las veces que se ha meado en el sofá, te ha arañado la ropa o ha roto el capó de tu Lamborghini Countach escala 1/18 (quizás esto solo me ha pasado a mí). Nicodemo es un azul ruso gaditano de 5 años y con quien mantengo una estrecha amistad. Es el gato más cariñoso que conozco, aunque un poquito interesado también, todo hay que decirlo. Vamos allá: Empiezo por lo que no me gusta de ti . A veces, cuando estoy comiendo algo rico te pegas al plato y me agobias. Si no te doy a probar ni un solo bocado te enfadas y berreas imitando un león ridículo mientras miras la puerta de la calle, queriendo irte de casa. Lo peor es cuando rechazas por completo el insulso pienso que te pongo por delante todos los días y te subes al fregadero y a la vitrocerámica buscando restos de comida que se me hayan podido pasar limpiando. Está feo, Nico. Cuando la estrategia mala no te funciona, te pones muy cariñoso de repente, rozándote y dándome cabezazos. Eso es de falso y de manipulador, que lo sepas. Ahora, la parte tierna . Al llegar a casa, vienes corriendo a celebrar que he vuelto (cosa más típica en un perro que en un gato). Además, las personas que han convivido conmigo decían que cuando me he ido de viaje te veían apagado y triste. Para colmo, en cuanto hace un mínimo de frío me buscas cada vez que quieres dormir, ya sea para acurrucarte en mi regazo o para meterte bajo las sábanas y poner tu cabecita junto a la mía en la almohada, ronroneando como un coche en ralentí. Me quedo dormida abrazando tu esponjosidad. Eres el peluche perfecto, estás excepcionalmente suave y hueles a pan recién hecho a pesar de que no te he lavado ni una sola vez, ya lo hace tu rasposa lengua cincuenta veces al día. Nunca me has mordido ni arañado, eres tan tranquilo que pareces un abuelito canoso. Hasta me inspiras a decirte ñoñerías, como este pequeño trabalenguas: Bizcochito Nico chico. Eso es todo, tampoco es plan de adularle más, que luego se le sube y no hay quien le baje."}</script>
+<script>
+/* ===== Núcleo: SDF + raymarching + texto sobre superficie ===== */
+const TAU = Math.PI * 2;
+const smin = (a, b, k) => { const h = Math.max(k - Math.abs(a - b), 0) / k; return Math.min(a, b) - h * h * k * 0.25; };
+const ellipsoid = (cx, cy, cz, rx, ry, rz) => (x, y, z) => {
+  x = (x - cx) / rx; y = (y - cy) / ry; z = (z - cz) / rz;
+  const k0 = Math.sqrt(x * x + y * y + z * z);
+  const k1 = Math.sqrt(x * x / (rx * rx) + y * y / (ry * ry) + z * z / (rz * rz));
+  return k1 < 1e-9 ? -Math.min(rx, ry, rz) : k0 * (k0 - 1) / k1;
+};
+/* cono redondeado (Inigo Quilez): ideal para patas, orejas y cola */
+const rcone = (a, b, r1, r2) => {
+  const bx = b[0] - a[0], by = b[1] - a[1], bz = b[2] - a[2];
+  const l2 = bx * bx + by * by + bz * bz, rr = r1 - r2, a2 = l2 - rr * rr, il2 = 1 / l2;
+  return (x, y, z) => {
+    const px = x - a[0], py = y - a[1], pz = z - a[2];
+    const yy = px * bx + py * by + pz * bz, zz = yy - l2;
+    const qx = px * l2 - bx * yy, qy = py * l2 - by * yy, qz = pz * l2 - bz * yy;
+    const x2 = qx * qx + qy * qy + qz * qz, y2 = yy * yy * l2, z2 = zz * zz * l2;
+    const k = Math.sign(rr) * rr * rr * x2;
+    if (Math.sign(zz) * a2 * z2 > k) return Math.sqrt(x2 + z2) * il2 - r2;
+    if (Math.sign(yy) * a2 * y2 < k) return Math.sqrt(x2 + y2) * il2 - r1;
+    return (Math.sqrt(x2 * a2 * il2) + yy * rr) * il2 - r1;
+  };
+};
+/* grupo con esfera envolvente: si el punto está lejos, devuelve una cota barata */
+const group = (cx, cy, cz, R, fn) => (x, y, z) => {
+  const d = Math.hypot(x - cx, y - cy, z - cz) - R;
+  return d > 0.25 ? d : fn(x, y, z);
+};
+
+/* ===== Forma: gato azul ruso sentado (mira hacia +z) ===== */
+const CAT = {
+  center: [0.1, 0.98, 0.0],  // centro de giro
+  radius: 1.62,              // esfera envolvente
+  top: 2.07,                // altura de las orejas (para repartir el texto)
+  texRadius: 0.56,          // radio del "cilindro" de texto
+  frame(t) {
+    const wag = Math.sin(t * 1.4) * 0.07, wag2 = Math.sin(t * 1.4 - 0.8) * 0.05;
+    const breathe = 1 + Math.sin(t * 1.9) * 0.012;
+    const E = ellipsoid, R = rcone;
+    // cuerpo
+    const haunchL = E(0.34, 0.36, -0.08, 0.31, 0.36, 0.44);
+    const haunchR = E(-0.34, 0.36, -0.08, 0.31, 0.36, 0.44);
+    const rear = E(0, 0.42, -0.10, 0.40, 0.40, 0.48);
+    const chest = R([0, 0.50, 0.0], [0, 1.06 * breathe, 0.12], 0.36, 0.15);
+    const body = group(0, 0.65, -0.05, 0.95, (x, y, z) =>
+      smin(smin(smin(haunchL(x, y, z), haunchR(x, y, z), 0.12), rear(x, y, z), 0.14), chest(x, y, z), 0.2));
+    // cabeza (cuña corta, orejas grandes y separadas)
+    const head = E(0, 1.42, 0.14, 0.42, 0.29, 0.32);
+    const muzzle = E(0, 1.31, 0.42, 0.14, 0.10, 0.11);
+    const earL = R([0.22, 1.60, 0.08], [0.42, 2.02, 0.02], 0.16, 0.03);
+    const earR = R([-0.22, 1.60, 0.08], [-0.42, 2.02, 0.02], 0.16, 0.03);
+    const headG = group(0, 1.5, 0.12, 0.7, (x, y, z) =>
+      smin(smin(smin(head(x, y, z), muzzle(x, y, z), 0.08), earL(x, y, z), 0.05), earR(x, y, z), 0.05));
+    // patas delanteras y traseras
+    const legL = R([0.16, 1.0, 0.2], [0.17, 0.09, 0.36], 0.12, 0.09);
+    const legR = R([-0.16, 1.0, 0.2], [-0.17, 0.09, 0.36], 0.12, 0.09);
+    const pawL = E(0.17, 0.075, 0.43, 0.10, 0.07, 0.14);
+    const pawR = E(-0.17, 0.075, 0.43, 0.10, 0.07, 0.14);
+    const footL = E(0.40, 0.08, 0.10, 0.12, 0.08, 0.28);
+    const footR = E(-0.40, 0.08, 0.10, 0.12, 0.08, 0.28);
+    const legs = group(0, 0.35, 0.25, 0.8, (x, y, z) =>
+      Math.min(Math.min(legL(x, y, z), legR(x, y, z)), Math.min(pawL(x, y, z), pawR(x, y, z)), footL(x, y, z), footR(x, y, z)));
+    // cola enroscada con ligero vaivén
+    const P = [[0.22, 0.20, -0.50], [0.62, 0.22, -0.66], [0.92, 0.55, -0.52], [0.98 + wag, 0.98, -0.36], [0.90 + wag * 2 + wag2, 1.30, -0.32]];
+    const t1 = R(P[0], P[1], 0.15, 0.13), t2 = R(P[1], P[2], 0.13, 0.115),
+      t3 = R(P[2], P[3], 0.115, 0.10), t4 = R(P[3], P[4], 0.10, 0.075);
+    const tail = group(0.55, 0.75, -0.45, 0.72, (x, y, z) =>
+      Math.min(Math.min(t1(x, y, z), t2(x, y, z)), t3(x, y, z), t4(x, y, z)));
+    // ojos: se dejan huecos en el texto
+    const eyes = [[0.17, 1.46, 0.40, 0.08], [-0.17, 1.46, 0.40, 0.08]];
+    return {
+      eyes,
+      sdf(x, y, z) {
+        let d = smin(body(x, y, z), headG(x, y, z), 0.16);
+        d = smin(d, legs(x, y, z), 0.07);
+        d = Math.min(d, tail(x, y, z));
+        return Math.max(d, 0.0 - y);   // suelo plano
+      }
+    };
+  }
+};
+
+/* ===== Texto: ajuste por palabras + justificado a N columnas ===== */
+function layoutText(text, cols, rows) {
+  const words = text.replace(/\s+/g, ' ').trim().split(' ');
+  const lines = []; let i = 0, guard = 0;
+  while (lines.length < rows && guard++ < 100000) {
+    let line = [], len = 0;
+    while (true) {
+      const w = words[i % words.length];
+      const add = (line.length ? 1 : 0) + w.length;
+      if (len + add > cols && line.length) break;
+      if (w.length > cols) { line.push(w.slice(0, cols)); len = cols; i++; break; }
+      line.push(w); len += add; i++;
+      if (line.length > 1 && len >= cols) break;
+    }
+    let gaps = line.length - 1, extra = cols - len, s = line[0];
+    for (let g = 0; g < gaps; g++) {
+      const n = 1 + Math.floor(extra / gaps) + (g < extra % gaps ? 1 : 0);
+      s += ' '.repeat(n) + line[g + 1];
+    }
+    lines.push(s.padEnd(cols, ' '));
+  }
+  return lines;
+}
+
+/* ===== Render de un fotograma a una rejilla de caracteres ===== */
+const LEVELS = 5;
+function renderFrame(shape, st, out) {
+  const { cols, rows, cw, lh, S, yaw, pitch, t, lines, T, th0 } = st;
+  const f = shape.frame(t), sdf = f.sdf;
+  const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
+  // R = Rx(pitch)·Ry(yaw)  (objeto → vista); usamos su transpuesta para vista → objeto
+  const m = [ // filas de R
+    [cy, 0, sy],
+    [sp * sy, cp, -sp * cy],
+    [-cp * sy, sp, cp * cy]];
+  const inv = (x, y, z) => [m[0][0] * x + m[1][0] * y + m[2][0] * z, m[0][1] * x + m[1][1] * y + m[2][1] * z, m[0][2] * x + m[1][2] * y + m[2][2] * z];
+  const C = shape.center, BR = shape.radius;
+  const dir = inv(0, 0, -1);
+  const L = (() => { const v = [-0.45, 0.65, 0.62], n = Math.hypot(...v); return v.map(a => a / n); })();
+  const rowH = lh / S;
+  out.fill(0);
+  for (let r = 0; r < rows; r++) {
+    const vy = ((rows * lh) / 2 - (r + 0.5) * lh) / S;
+    for (let c = 0; c < cols; c++) {
+      const vx = ((c + 0.5) * cw - (cols * cw) / 2) / S;
+      const o = inv(vx, vy, 3); o[0] += C[0]; o[1] += C[1]; o[2] += C[2];
+      // intersección con esfera envolvente
+      const ox = o[0] - C[0], oy = o[1] - C[1], oz = o[2] - C[2];
+      const b = ox * dir[0] + oy * dir[1] + oz * dir[2];
+      const cc = ox * ox + oy * oy + oz * oz - BR * BR;
+      const disc = b * b - cc;
+      if (disc < 0) continue;
+      let tt = Math.max(0, -b - Math.sqrt(disc)); const tEnd = -b + Math.sqrt(disc);
+      let hit = false, px = 0, py = 0, pz = 0;
+      for (let i = 0; i < 40 && tt < tEnd; i++) {
+        px = o[0] + dir[0] * tt; py = o[1] + dir[1] * tt; pz = o[2] + dir[2] * tt;
+        const d = sdf(px, py, pz);
+        if (d < 0.006) { hit = true; break; }
+        tt += d * 0.95;
+      }
+      if (!hit) continue;
+      // ojos = huecos
+      let eye = false;
+      for (const e of f.eyes) if (Math.hypot(px - e[0], py - e[1], pz - e[2]) < e[3]) { eye = true; break; }
+      if (eye) continue;
+      // normal (tetraedro)
+      const h = 0.012, k1 = sdf(px + h, py - h, pz - h), k2 = sdf(px - h, py - h, pz + h), k3 = sdf(px - h, py + h, pz - h), k4 = sdf(px + h, py + h, pz + h);
+      let nx = k1 - k2 - k3 + k4, ny = -k1 - k2 + k3 + k4, nz = -k1 + k2 - k3 + k4;
+      const nl = Math.hypot(nx, ny, nz) || 1; nx /= nl; ny /= nl; nz /= nl;
+      // normal en vista
+      const vxn = m[0][0] * nx + m[0][1] * ny + m[0][2] * nz;
+      const vyn = m[1][0] * nx + m[1][1] * ny + m[1][2] * nz;
+      const vzn = m[2][0] * nx + m[2][1] * ny + m[2][2] * nz;
+      const lam = Math.max(0, vxn * L[0] + vyn * L[1] + vzn * L[2]);
+      const rim = Math.pow(1 - Math.max(0, vzn), 2.2);
+      const br = Math.min(1, 0.12 + 0.78 * lam + 0.32 * rim);
+      let lvl = 1 + Math.floor(br * LEVELS); if (lvl > LEVELS) lvl = LEVELS;
+      // texto proyectado sobre la superficie (cilindro alrededor del eje Y del objeto)
+      let u = (Math.atan2(px - C[0], pz - C[2]) - th0) / TAU; u -= Math.floor(u);
+      const col = Math.min(T - 1, Math.floor(u * T));
+      let row = Math.floor((shape.top - py) / rowH); if (row < 0) row = 0;
+      let ch = lines[row % lines.length][col];
+      if (ch === ' ') { ch = '·'; lvl = Math.max(1, lvl - 2); }   // los espacios entre palabras se marcan con un punto tenue
+      out[r * cols + c] = lvl;
+      st.chars[r * cols + c] = ch;
+    }
+  }
+}
+
+
+/* ===== Navegador: lienzo, animación e interacción ===== */
+(() => {
+  const FONT = '13px "Fixedsys Excelsior", Fixedsys, monospace';
+  const LH = 12;                                   // alto de línea del dibujo (px)
+  const ALPHA = [0, .34, .5, .66, .82, 1];      // niveles de brillo
+  const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const TEXTS = JSON.parse(document.getElementById('ascii-text').textContent);
+  const SHAPES = { cat: CAT };                     // data-shape="cat" → CAT. Añade aquí las demás formas.
+
+  /* PRETEXT: toda la medición de texto pasa por esta función. Fixedsys es monoespaciada,
+     así que basta una medida. Si más adelante usas una fuente proporcional (como en la demo
+     de Pretext), sustituye este cuerpo por prepareWithSegments()/layoutWithLines() de
+     @chenglou/pretext y devuelve el ancho de cada carácter. */
+  function measureCell() {
+    const c = document.createElement('canvas').getContext('2d');
+    c.font = FONT;
+    return { cw: c.measureText('M').width, lh: LH };
+  }
+
+  const arts = [];
+  class Art {
+    constructor(el, shape, text) {
+      this.el = el; this.shape = shape; this.text = text;
+      const wrap = document.createElement('div'); wrap.className = 'entry-art'; wrap.setAttribute('aria-hidden', 'true');
+      this.canvas = document.createElement('canvas'); wrap.appendChild(this.canvas);
+      el.insertBefore(wrap, el.firstChild);
+      this.wrap = wrap; this.ctx = this.canvas.getContext('2d');
+      this.yaw = 0.5; this.vel = 0; this.pitch = 0; this.pitchT = 0; this.hover = false;
+      this.t = Math.random() * 10; this.visible = true; this.acc = 0; this.cost = 0;
+      el.addEventListener('pointerenter', () => { this.hover = true; });
+      el.addEventListener('pointerleave', () => { this.hover = false; this.pitchT = 0; });
+      el.addEventListener('focus', () => { this.hover = true; });
+      el.addEventListener('blur', () => { this.hover = false; });
+      el.addEventListener('pointermove', e => {
+        const r = el.getBoundingClientRect();
+        this.pitchT = ((e.clientY - r.top) / r.height - 0.5) * 0.5;
+      });
+      new ResizeObserver(() => this.resize()).observe(wrap);
+      new IntersectionObserver(es => { this.visible = es[0].isIntersecting; }).observe(wrap);
+      this.resize();
+    }
+    resize() {
+      const w = this.wrap.clientWidth, h = this.wrap.clientHeight;
+      if (!w || !h) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2), { cw, lh } = measureCell();
+      this.dpr = dpr; this.canvas.width = Math.round(w * dpr); this.canvas.height = Math.round(h * dpr);
+      this.cols = Math.floor(w / cw); this.rows = Math.floor(h / lh); this.cw = cw; this.lh = lh;
+      this.ox = (w - this.cols * cw) / 2; this.oy = (h - this.rows * lh) / 2;
+      this.S = Math.min(this.rows * lh / 2.1, this.cols * cw / 1.75);
+      this.T = Math.max(24, Math.round(TAU * this.shape.texRadius * this.S / cw));
+      this.lines = layoutText(this.text, this.T, Math.ceil((this.shape.top + 0.1) * this.S / lh) + 2);
+      this.cells = new Uint8Array(this.cols * this.rows); this.chars = new Array(this.cols * this.rows);
+      this.draw();
+    }
+    step(dt) {
+      this.t += dt;
+      const wrapPi = a => a - TAU * Math.round(a / TAU);
+      if (this.hover && !REDUCED) { this.vel += (1.15 - this.vel) * Math.min(1, dt * 3); this.yaw += this.vel * dt; }
+      else {
+        this.vel += (0 - this.vel) * Math.min(1, dt * 4);
+        const target = REDUCED ? 0.5 : 0.5 + 0.38 * Math.sin(this.t * 0.55);
+        this.yaw += wrapPi(target - this.yaw) * Math.min(1, dt * 2.2) + this.vel * dt;
+      }
+      this.pitch += (this.pitchT - this.pitch) * Math.min(1, dt * 5);
+    }
+    draw() {
+      if (!this.cells) return;
+      renderFrame(this.shape, { cols: this.cols, rows: this.rows, cw: this.cw, lh: this.lh, S: this.S,
+        yaw: this.yaw, pitch: this.pitch, t: REDUCED ? 0 : this.t, lines: this.lines, T: this.T, th0: -1.0, chars: this.chars }, this.cells);
+      const c = this.ctx, d = this.dpr;
+      c.setTransform(d, 0, 0, d, 0, 0); c.clearRect(0, 0, this.canvas.width, this.canvas.height);
+      c.font = FONT; c.textBaseline = 'alphabetic';
+      for (let l = 1; l <= LEVELS; l++) {
+        c.fillStyle = `rgba(255,255,255,${ALPHA[l]})`;
+        for (let r = 0; r < this.rows; r++) for (let k = 0; k < this.cols; k++) {
+          const i = r * this.cols + k;
+          if (this.cells[i] === l) c.fillText(this.chars[i], Math.round((this.ox + k * this.cw) * d) / d, Math.round((this.oy + (r + 0.8) * this.lh) * d) / d);
+        }
+      }
+    }
+  }
+
+  function boot() {
+    document.querySelectorAll('a.entry[data-shape]').forEach(el => {
+      const shape = SHAPES[el.dataset.shape], text = TEXTS[el.dataset.slug];
+      if (shape && text) arts.push(new Art(el, shape, text));
+    });
+    if (!arts.length || REDUCED) {
+      // con movimiento reducido: un fotograma fijo, y se redibuja al cambiar de tamaño
+      return;
+    }
+    let last = performance.now();
+    (function loop(now) {
+      requestAnimationFrame(loop);
+      const dt = Math.min(0.05, (now - last) / 1000);
+      if (document.hidden) { last = now; return; }
+      for (const a of arts) {
+        if (!a.visible) continue;
+        a.acc += dt;
+        // reposo a 30 fps; con hover a 60 fps, salvo que el fotograma cueste más de ~10 ms (celdas grandes)
+        const every = a.hover && a.cost < 10 ? 0 : 1 / 30;
+        if (a.acc >= every) { a.step(a.acc); const t0 = performance.now(); a.draw(); a.cost += (performance.now() - t0 - a.cost) * 0.2; a.acc = 0; }
+      }
+      last = now;
+    })(last);
+  }
+  (document.fonts && document.fonts.load ? document.fonts.load(FONT) : Promise.resolve()).then(boot, boot);
+})();
+</script>
 </body>
 </html>
