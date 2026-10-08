@@ -102,7 +102,7 @@ footer{
 }
 </style>
 </head>
-<body>
+<body data-page="1">
 
 <header class="intro">
   <h1>Violeta<br>Sarabia</h1>
@@ -144,6 +144,33 @@ footer{
   <!-- Huecos reservados: al tener una entrada, cambia el <div> por <a class="entry" href="..."> -->
   <!-- <div class="entry" aria-hidden="true"></div> -->
 </main>
+<template data-page="2">
+  <a class="entry" href="entries/el-campo.html" data-slug="el-campo">
+    <span class="entry-title">El campo</span>
+  </a>
+  <a class="entry" href="entries/jupiter.html" data-slug="jupiter">
+    <span class="entry-title">Júpiter</span>
+  </a>
+  <a class="entry" href="entries/amor-natural.html" data-slug="amor-natural">
+    <span class="entry-title">Amor natural</span>
+  </a>
+  <a class="entry" href="entries/europa.html" data-slug="europa">
+    <span class="entry-title">Europa</span>
+  </a>
+  <a class="entry" href="entries/techo-rojo.html" data-slug="techo-rojo">
+    <span class="entry-title">Techo rojo</span>
+  </a>
+  <a class="entry" href="entries/pupila-blanca.html" data-slug="pupila-blanca">
+    <span class="entry-title">Pupila blanca</span>
+  </a>
+  <a class="entry" href="entries/sin-titulo-es-un-titulo.html" data-slug="sin-titulo-es-un-titulo">
+    <span class="entry-title">“Sin título” es un título</span>
+  </a>
+  <a class="entry" href="entries/panettone.html" data-slug="panettone">
+    <span class="entry-title">Panettone</span>
+  </a>
+</template>
+<script type="application/json" data-page-texts>{}</script>
 
 <footer>
   <span class="footer-copy">Violeta Sarabia © 2026</span>
@@ -801,21 +828,28 @@ const TREX = Object.assign({
     }
   }
 
-  function boot() {
-    document.querySelectorAll('a.entry[data-shape]').forEach(el => {
+  /* Montaje: crea los dibujos de las celdas que hay dentro de "root" (la portada al cargar, o una página nueva al cambiar) */
+  let ready = false, looping = false;
+  const queue = [];
+  function mount(root) {
+    if (!ready) { queue.push(root); return; }
+    root.querySelectorAll('a.entry[data-shape]').forEach(el => {
+      if (el._art) return;
       const shape = SHAPES[el.dataset.shape], text = TEXTS[el.dataset.slug];
-      if (shape && text) arts.push(new Art(el, shape, text));
+      if (shape && text) { el._art = new Art(el, shape, text); arts.push(el._art); }
     });
-    if (!arts.length || REDUCED) {
-      // con movimiento reducido: un fotograma fijo, y se redibuja al cambiar de tamaño
-      return;
-    }
+    if (arts.length && !REDUCED && !looping) startLoop();
+  }
+  function startLoop() {
+    looping = true;
     let last = performance.now();
     (function loop(now) {
       requestAnimationFrame(loop);
       const dt = Math.min(0.05, (now - last) / 1000);
       if (document.hidden) { last = now; return; }
-      for (const a of arts) {
+      for (let i = arts.length - 1; i >= 0; i--) {
+        const a = arts[i];
+        if (!a.el.isConnected) { arts.splice(i, 1); continue; }    // celdas de una página que ya se ha ido
         if (!a.visible) continue;
         a.acc += dt;
         // reposo a 30 fps; con hover a 60 fps, salvo que el fotograma cueste más de ~10 ms (celdas grandes)
@@ -825,7 +859,71 @@ const TREX = Object.assign({
       last = now;
     })(last);
   }
+  window.AsciiArt = { mount, addTexts: o => Object.assign(TEXTS, o) };
+  const boot = () => { ready = true; mount(document); queue.splice(0).forEach(mount); };
   (document.fonts && document.fonts.load ? document.fonts.load(FONT) : Promise.resolve()).then(boot, boot);
+})();
+
+/* ===== Paginación: al pulsar otra página, la cuadrícula se desliza de lado (en móvil, cambio inmediato y vuelta arriba) ===== */
+(() => {
+  const grid = document.getElementById('entries');
+  if (!grid) return;
+  const cur = +document.body.dataset.page || 1;
+  const tpl = { [cur]: grid.innerHTML };                       // la página actual, tal como está antes de pintar los dibujos
+  document.querySelectorAll('template[data-page]').forEach(t => { tpl[+t.dataset.page] = t.innerHTML; });
+  document.querySelectorAll('script[data-page-texts]').forEach(s => { try { window.__pageTexts = Object.assign(window.__pageTexts || {}, JSON.parse(s.textContent)); } catch (e) {} });
+  const pageOf = href => { const m = /pagina-(\d+)\.html/.exec(href); return m ? +m[1] : /index\.html$|\/$/.test(href) ? 1 : 0; };
+  const narrow = () => matchMedia('(max-width: 760px)').matches;
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let page = cur, busy = false;
+
+  function markFooter(n) {
+    document.querySelectorAll('.footer-pages a').forEach(a => {
+      const on = pageOf(a.getAttribute('href')) === n;
+      a.classList.toggle('current', on);
+      if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
+  }
+  function go(n, href, push) {
+    if (busy || n === page || !(n in tpl)) return false;
+    if (window.__pageTexts && window.AsciiArt) window.AsciiArt.addTexts(window.__pageTexts);
+    const fresh = document.createElement('div');
+    fresh.innerHTML = tpl[n];
+    const done = () => {
+      page = n; markFooter(n);
+      if (push) { try { history.pushState({ page: n }, '', href); } catch (e) {} }   // en archivos locales (file://) el navegador puede no permitirlo
+      document.title = n === 1 ? 'Violeta Sarabia' : `Violeta Sarabia — página ${n}`;
+    };
+    if (narrow() || reduced) {                                  // móvil: arriba del todo y la página nueva al instante
+      grid.replaceChildren(...fresh.childNodes);
+      window.AsciiArt && window.AsciiArt.mount(grid);
+      window.scrollTo({ top: 0, behavior: 'auto' });
+      done(); return true;
+    }
+    // escritorio: la página nueva entra por un lado mientras la actual sale por el otro
+    busy = true;
+    const dir = n > page ? 1 : -1, r = grid.getBoundingClientRect();
+    const next = grid.cloneNode(false);
+    next.removeAttribute('id');
+    next.replaceChildren(...fresh.childNodes);
+    Object.assign(next.style, { position: 'fixed', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px',
+      transform: `translateX(${dir * 100}%)`, zIndex: 3 });
+    document.body.appendChild(next);
+    window.AsciiArt && window.AsciiArt.mount(next);
+    const opts = { duration: 850, easing: 'cubic-bezier(.65,0,.35,1)', fill: 'forwards' };
+    grid.animate([{ transform: 'translateX(0)' }, { transform: `translateX(${-dir * 100}%)` }], opts);
+    next.animate([{ transform: `translateX(${dir * 100}%)` }, { transform: 'translateX(0)' }], opts).onfinish = () => {
+      grid.replaceChildren(...next.childNodes);                 // las celdas (con sus dibujos ya en marcha) pasan a la cuadrícula
+      grid.getAnimations().forEach(a => a.cancel());
+      next.remove(); busy = false; done();
+    };
+    return true;
+  }
+  document.querySelectorAll('.footer-pages a').forEach(a => a.addEventListener('click', e => {
+    const n = pageOf(a.getAttribute('href'));
+    if (n && go(n, a.getAttribute('href'), true)) e.preventDefault();
+  }));
+  addEventListener('popstate', () => { const n = pageOf(location.pathname) || 1; go(n, location.pathname, false); });
 })();
 </script>
 </body>
