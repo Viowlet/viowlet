@@ -45,7 +45,7 @@ a{color:inherit;text-decoration:none}
 /* CUADRÍCULA: 5 x 2, sin márgenes, línea de 1px gris */
 .grid{
   min-height:0;display:grid;
-  grid-template-columns:repeat(5,minmax(0,1fr));
+  grid-template-columns:repeat(4,minmax(0,1fr));
   grid-template-rows:repeat(2,minmax(0,1fr));
   gap:1px;background:var(--line)
 }
@@ -78,7 +78,7 @@ footer{
 @media(max-width:760px){
   .intro{flex-direction:column;gap:16px;padding-top:18px;padding-bottom:18px}
   .intro-info{max-width:none;padding-top:0}
-  .grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(5,minmax(0,1fr))}
+  .grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(4,minmax(0,1fr))}
   .entry{padding:12px}
   footer{padding-top:12px;padding-bottom:14px;font-size:14px}
   .footer-pages{gap:6px}
