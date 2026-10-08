@@ -279,7 +279,7 @@ function renderFrame(shape, st, out) {
   const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const LH = 14;                         // alto de fila del dibujo (px)
   const OP = [0, .42, .56, .7, .85, 1];  // brillo de cada nivel
-  let state = 'cat', chars = [], fly = [], timers = [], anims = [];
+  let state = 'cat', chars = [], fly = [], timers = [], pending = 0, armed = true;
 
   try {
     /* 1. Cada carácter de la entrada pasa a ser un <span>: el texto sigue siendo texto (se selecciona, se copia, los enlaces funcionan) */
@@ -331,105 +331,127 @@ function renderFrame(shape, st, out) {
     }
   }
 
-  /* 3. Curvas: elástica para la caída, y un pequeño latigazo antes, como un espagueti */
+  /* 3. Curvas: un pequeño latigazo hacia arriba y luego caída elástica, como un espagueti */
   const elastic = t => t <= 0 ? 0 : t >= 1 ? 1 : Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * (2 * Math.PI / 3)) + 1;
   const ease = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-  function frames(dx, dy, rot, o0, lift) {
-    const f = [];
-    for (let i = 0; i <= 40; i++) {
-      const t = i / 40, a = Math.min(1, t / 0.28), u = Math.max(0, (t - 0.28) / 0.72);
-      const x = dx * ease(Math.min(1, t / 0.5));
-      const y = t < 0.28 ? -lift * Math.sin(a * Math.PI / 2) : -lift + (dy + lift) * elastic(u);
-      const r = t < 0.28 ? rot * Math.sin(a * Math.PI / 2) : rot * (1 - elastic(u));
-      f.push({ transform: `translate(${x.toFixed(1)}px,${y.toFixed(1)}px) rotate(${r.toFixed(1)}deg)`, opacity: o0 + (1 - o0) * Math.min(1, t * 1.6) });
-    }
-    return f;
+  function pose(it, t) {                                       // posición de una letra en el instante t (0 → gato, 1 → texto)
+    const a = Math.min(1, t / 0.2), u = Math.max(0, (t - 0.2) / 0.8);
+    const x = it.dx * ease(Math.min(1, t / 0.5));
+    const y = t < 0.2 ? -it.lift * Math.sin(a * Math.PI / 2) : -it.lift + (it.dy + it.lift) * elastic(u);
+    const r = t < 0.2 ? it.rot * Math.sin(a * Math.PI / 2) : it.rot * (1 - elastic(u));
+    it.s.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px) rotate(${r.toFixed(1)}deg)`;
+    it.s.style.opacity = it.o0 + (1 - it.o0) * Math.min(1, t * 1.6);
   }
-  // agrupa los destinos por línea de texto
+  // motor propio: un solo bucle por fotograma mueve todas las letras en vuelo (sin preparar mil animaciones de golpe)
+  let items = [], t0 = 0, loop = 0;
+  function run(list, onAllDone) {
+    items = list; t0 = performance.now();
+    cancelAnimationFrame(loop);
+    const step = now => {
+      const el = now - t0; let alive = 0;
+      for (const it of items) {
+        if (it.fin) continue;
+        const k = (el - it.delay) / it.dur;
+        if (k < 0) { alive++; continue; }
+        if (!it.started) { it.started = true; it.onStart && it.onStart(); }
+        if (k >= 1) { it.fin = true; pose(it, it.back ? 0 : 1); it.onEnd && it.onEnd(); continue; }
+        pose(it, it.back ? 1 - k : k); alive++;
+      }
+      if (alive) loop = requestAnimationFrame(step); else onAllDone && onAllDone();
+    };
+    loop = requestAnimationFrame(step);
+  }
+  // mide de una vez (sin escribir nada entre lecturas) dónde está cada letra del gato y su destino en el texto
+  function measureAll(list) {
+    for (const s of list) { s._a = s.getBoundingClientRect(); s._b = chars[s._i].getBoundingClientRect(); }
+  }
   function lines(list) {
     const tops = [], map = new Map();
-    for (const s of list) { const t = Math.round(chars[s._i].getBoundingClientRect().top); if (!map.has(t)) { map.set(t, []); tops.push(t); } map.get(t).push(s); }
+    for (const s of list) { const t = Math.round(s._b.top); if (!map.has(t)) { map.set(t, []); tops.push(t); } map.get(t).push(s); }
     tops.sort((a, b) => a - b);
     return tops.map(t => map.get(t));
   }
-  const clearAll = () => { timers.forEach(clearTimeout); timers = []; anims.forEach(a => a.cancel()); anims = []; };
+  const clearAll = () => { timers.forEach(clearTimeout); timers = []; cancelAnimationFrame(loop); items = []; };
+  const item = (s, delay, dur, back) => ({ s, d: chars[s._i], delay, dur, back, dx: s._b.left - s._a.left, dy: s._b.top - s._a.top,
+    rot: (Math.random() * 2 - 1) * 38, lift: 30 + Math.random() * 50, o0: s._o });
 
-  /* 4. Desenredar: línea a línea, cada letra viaja a su sitio con caída elástica */
+  /* 4. Desenredar: línea a línea, cada letra viaja a su sitio con caída elástica; empieza en el mismo fotograma */
   function unravel() {
     if (state !== 'cat') return;
     state = 'busy'; stage.classList.add('running'); art.classList.add('live');
-    if (REDUCED) { chars.forEach(c => c.classList.remove('h')); stage.classList.add('gone'); done(); return; }
-    const L = lines(fly), LINE = 150, STEP = 7, DUR = 1350;
-    let end = 0;
+    if (REDUCED) { chars.forEach(c => c.classList.remove('h')); stage.classList.add('gone'); pending = 1; done(); return; }
+    measureAll(fly);
+    const L = lines(fly), LINE = 130, STEP = 7, DUR = 1300, list = [];
     L.forEach((line, li) => line.forEach((s, j) => {
-      const d = chars[s._i], a = s.getBoundingClientRect(), b = d.getBoundingClientRect();
-      const delay = li * LINE + j * STEP;
-      const rot = (Math.random() * 2 - 1) * 38, lift = 30 + Math.random() * 50;
-      const anim = s.animate(frames(b.left - a.left, b.top - a.top, rot, s._o, lift), { duration: DUR, delay, fill: 'forwards', easing: 'linear' });
-      anim.onfinish = () => { d.classList.remove('h'); s.style.visibility = 'hidden'; };
-      anims.push(anim); end = Math.max(end, delay + DUR);
+      const it = item(s, li * LINE + j * STEP, DUR, false);
+      it.onEnd = () => { it.d.classList.remove('h'); s.style.visibility = 'hidden'; };
+      list.push(it);
     }));
-    // los caracteres que no cabían en el gato aparecen como a máquina de escribir
-    timers.push(setTimeout(() => typewriter(fly.length), Math.max(0, end - 500)));
+    pending = 2;
+    run(list, done);
+    // la máquina de escribir arranca cuando caen las dos últimas palabras del gato
+    const lastLine = L[L.length - 1], tailIdx = Math.max(0, lastLine.length - 12);
+    timers.push(setTimeout(() => typewriter(fly.length), (L.length - 1) * LINE + tailIdx * STEP + DUR * 0.4));
   }
   function typewriter(from) {
-    const rest = chars.length - from;
-    const per = Math.max(2, Math.ceil(rest / (60 * 5.5)));     // unos cinco segundos y medio
+    // posiciones del cursor calculadas una sola vez (sin medir la página en cada fotograma)
+    const A = art.getBoundingClientRect(), pos = [];
+    for (let k = from; k < chars.length; k++) { const r = chars[k].getBoundingClientRect(); pos.push([r.right - A.left, r.top - A.top]); }
+    const per = Math.max(2, Math.ceil((chars.length - from) / (60 * 5.5)));     // unos cinco segundos y medio
     let i = from; caret.classList.add('on');
     const tick = () => {
       if (state !== 'busy') return;
       for (let k = 0; k < per && i < chars.length; k++, i++) chars[i].classList.remove('h');
-      const last = chars[Math.min(i, chars.length) - 1], r = last.getBoundingClientRect(), A = art.getBoundingClientRect();
-      caret.style.transform = `translate(${r.right - A.left}px,${r.top - A.top}px)`;
+      const p = pos[Math.min(i, chars.length) - 1 - from];
+      if (p) caret.style.transform = `translate(${p[0]}px,${p[1]}px)`;
       if (i < chars.length) requestAnimationFrame(tick); else { caret.classList.remove('on'); done(); }
     };
     requestAnimationFrame(tick);
   }
-  function done() {
-    timers.push(setTimeout(() => { if (state !== 'busy') return; stage.classList.add('gone'); state = 'text'; btn.hidden = false; }, 1400));
+  function done() {                          // se llama al acabar la caída y al acabar la máquina de escribir
+    if (--pending > 0) return;
+    timers.push(setTimeout(() => { if (state !== 'busy') return; stage.classList.add('gone'); state = 'text'; btn.hidden = false; }, 300));
   }
 
-  /* 5. Redibujar: el texto se recoge y vuelve a formar el gato */
+  /* 5. Redibujar: se borra lo escrito a máquina mientras la página sube y, sin pausa, el texto se recoge en el gato */
   function redraw() {
     if (state !== 'text') return;
     state = 'back'; btn.hidden = true;
     window.scrollTo({ top: 0, behavior: REDUCED ? 'auto' : 'smooth' });
-    const start = () => {
-      let i = chars.length;
-      const per = Math.max(6, Math.ceil((chars.length - fly.length) / (60 * 1.4)));
-      const rewind = () => {                                        // primero se borra lo escrito a máquina
-        for (let k = 0; k < per && i > fly.length; k++) chars[--i].classList.add('h');
-        if (i > fly.length) requestAnimationFrame(rewind); else gather();
-      };
-      requestAnimationFrame(rewind);
+    let i = chars.length;
+    const per = Math.max(6, Math.ceil((chars.length - fly.length) / (60 * 0.45)));
+    const rewind = () => {
+      for (let k = 0; k < per && i > fly.length; k++) chars[--i].classList.add('h');
+      if (i > fly.length) requestAnimationFrame(rewind); else gather();
     };
-    timers.push(setTimeout(start, REDUCED ? 0 : 650));
+    requestAnimationFrame(rewind);
   }
   function gather() {
     clearAll();
     stage.classList.remove('gone');
     if (REDUCED) { chars.forEach(c => c.classList.add('h')); fly.forEach(s => (s.style.visibility = '')); return reset(); }
-    const L = lines(fly).reverse(), LINE = 110, STEP = 5, DUR = 1250;
-    let end = 0;
+    fly.forEach(s => { s.style.transform = 'none'; });            // posición de reposo, para medir bien
+    measureAll(fly);
+    const L = lines(fly).reverse(), LINE = 100, STEP = 5, DUR = 1200, list = [];
     L.forEach((line, li) => line.slice().reverse().forEach((s, j) => {
-      const d = chars[s._i];
-      s.style.visibility = ''; const a = s.getBoundingClientRect(), b = d.getBoundingClientRect();
-      const f = frames(b.left - a.left, b.top - a.top, (Math.random() * 2 - 1) * 38, s._o, 30 + Math.random() * 50).reverse();
-      s.style.transform = f[0].transform; s.style.opacity = 1;
-      const delay = li * LINE + j * STEP;
-      timers.push(setTimeout(() => d.classList.add('h'), delay));
-      const anim = s.animate(f, { duration: DUR, delay, fill: 'forwards', easing: 'linear' });
-      anims.push(anim); end = Math.max(end, delay + DUR);
+      const it = item(s, li * LINE + j * STEP, DUR, true);
+      list.push(it);
     }));
-    timers.push(setTimeout(reset, end + 50));
+    // todas las letras del gato aparecen en su sitio del texto, y cada una se despega cuando le toca
+    for (const it of list) { pose(it, 1); it.s.style.visibility = ''; it.onStart = () => it.d.classList.add('h'); }
+    for (const it of list) it.d.classList.add('h');
+    run(list, reset);
   }
   function reset() {
     clearAll();
     fly.forEach(s => { s.style.transform = ''; s.style.opacity = s._o; s.style.visibility = ''; });
     stage.classList.remove('running'); art.classList.remove('live'); state = 'cat';
+    armed = false;   // no se vuelve a desenredar solo si el ratón ya estaba encima: hay que salir del gato y volver a entrar
   }
 
-  stage.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') unravel(); });
+  stage.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse' && armed) unravel(); });
+  stage.addEventListener('pointerleave', () => { armed = true; });
+  document.addEventListener('pointermove', e => { if (!armed && state === 'cat' && !stage.contains(e.target)) armed = true; });
   stage.addEventListener('click', unravel);
   stage.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); unravel(); } });
   btn.addEventListener('click', redraw);
