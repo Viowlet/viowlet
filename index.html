@@ -47,10 +47,10 @@ a,a:link,a:visited,a:hover,a:active{color:inherit;text-decoration:none}   /* el 
   min-height:0;display:grid;
   grid-template-columns:repeat(4,minmax(0,1fr));
   grid-template-rows:repeat(2,minmax(0,1fr));
-  gap:1px;background:var(--line)
+  gap:1px;background:var(--bg)
 }
 .entry{
-  min-width:0;min-height:0;overflow:hidden;position:relative;
+  min-width:0;min-height:0;overflow:hidden;position:relative;box-shadow:0 0 0 1px var(--line);
   background:var(--bg);color:var(--fg);padding:16px;
   display:flex;flex-direction:column;justify-content:flex-end;
   transition:background .2s ease,color .2s ease
@@ -157,7 +157,7 @@ footer{
   <a class="entry" href="entries/el-campo.html" data-slug="el-campo" data-date="2023-01-07" data-shape="field">
     <span class="entry-title">El campo</span>
   </a>
-  <a class="entry" href="entries/jupiter.html" data-slug="jupiter" data-date="2022-10-26" data-shape="jupiter">
+  <a class="entry" href="entries/jupiter.html" data-slug="jupiter" data-date="2022-10-26" data-shape="storm">
     <span class="entry-title">Júpiter</span>
   </a>
   <a class="entry" href="entries/amor-natural.html" data-slug="amor-natural" data-date="2022-08-29" data-shape="dogs">
@@ -860,33 +860,40 @@ const EUROPE = Object.assign({
   }
 }, planar({ x0: -1.6, width: 3.2, z0: -0.1, depth: 0.2, top: 1.05, height: 2.1 }));
 
-/* ===== Forma: un cuadro con marco claro, fondo negro y un dibujo abstracto ===== */
+/* ===== Forma: un cuadro de mesa. Marco ancho con relieve (moldura), fondo negro sin letras
+   y, por detrás, la trasera y la pata de apoyo, que se ven al girar ===== */
 const PAINTING = Object.assign({
-  center: [0, 0, 0], radius: 1.6, fit: [2.2, 2.6], idle: 'sway', sway: [0.15, 0.28, 0.35], swing: 0.6,
-  frame(t) {
+  center: [0, 0.98, -0.12], radius: 1.75, fit: [2.6, 2.45], idle: 'sway', sway: [0.3, 0.3, 0.35],
+  frame() {
     if (this._f) return this._f;
-    const W = 0.85, H = 1.08, F = 0.15;                          // medio ancho, medio alto y grosor del marco
-    const outer = rbox(0, 0, 0, W, H, 0.09, 0.03), inner = rbox(0, 0, 0.05, W - F, H - F, 0.08, 0.005);
-    const frameS = (x, y, z) => Math.max(outer(x, y, z), -inner(x, y, z));
-    const canvas = rbox(0, 0, -0.02, W - F + 0.01, H - F + 0.01, 0.015, 0.0);
-    // composición abstracta sobre el lienzo (el resto del lienzo queda negro, sin letras)
-    const art = (x, y) => {
-      const circ = Math.abs(Math.hypot(x + 0.18, y - 0.32) - 0.26) < 0.085;                      // círculo
-      const disc = Math.hypot(x - 0.3, y + 0.42) < 0.21;                                          // disco
-      const diag = Math.abs((x + y * 0.55) - 0.05) < 0.07 && y > -0.78 && y < 0.82;             // trazo diagonal
-      const tri = y < -0.15 && y > -0.75 && Math.abs(x + 0.33) < (y + 0.75) * 0.45;              // triángulo
-      const bar = Math.abs(y - 0.68) < 0.065 && x > 0.05 && x < 0.58;                              // barra
-      const zig = x > 0.15 && x < 0.62 && Math.abs(y - 0.1 - 0.12 * Math.abs(((x * 7) % 2) - 1)) < 0.06;   // zigzag
-      return circ || disc || diag || tri || bar || zig;
+    const W = 0.82, H = 1.0, F = 0.27;                       // medio ancho, medio alto y anchura del marco
+    const LEAN = 0.2, cl = Math.cos(LEAN), sl = Math.sin(LEAN), Y0 = 0.07 + H * cl;   // el cuadro, apoyado y algo inclinado hacia atrás
+    const toLocal = (x, y, z) => { const dy = y - Y0, dz = z; return [x, dy * cl - dz * sl, dy * sl + dz * cl]; };
+    // marco: bloque redondeado menos el hueco, con una moldura en relieve a media anchura y un escalón hacia el lienzo
+    const outer = rbox(0, 0, 0, W, H, 0.07, 0.05), hole = rbox(0, 0, 0, W - F, H - F, 0.2, 0.01);
+    const ridgeO = rbox(0, 0, 0.035, W - F * 0.3, H - F * 0.3, 0.07, 0.04), ridgeI = rbox(0, 0, 0.035, W - F * 0.62, H - F * 0.62, 0.2, 0.01);
+    const lip = rbox(0, 0, -0.02, W - F + 0.05, H - F + 0.05, 0.045, 0.01);
+    const frameS = (x, y, z) => {
+      const body = Math.max(outer(x, y, z), -hole(x, y, z));
+      const ridge = Math.max(ridgeO(x, y, z), -ridgeI(x, y, z));
+      return Math.min(smin(body, ridge, 0.03), Math.max(lip(x, y, z), -hole(x, y, z) - 0.05));
     };
+    const board = rbox(0, 0, -0.04, W - F + 0.06, H - F + 0.06, 0.025, 0.005);      // el lienzo / la trasera
+    const back = rbox(0, 0, -0.085, W - 0.06, H - 0.06, 0.018, 0.01);               // tapa trasera
+    // pata de apoyo: sale de la trasera, a media altura, y baja hasta la mesa por detrás
+    const footW = [0, 0.07, -0.95], hingeW = (() => { const ly = 0.05, lz = -0.1; return [0, Y0 + ly * cl + lz * sl, -ly * sl + lz * cl]; })();
+    const leg = capsule(hingeW, footW, 0.055);
+    const legS = (x, y, z) => { const d = leg(x, y, z); return Math.max(d, Math.abs(x) - 0.14); };
+    const pic = (x, y, z) => { const [lx, ly, lz] = toLocal(x, y, z); return Math.min(frameS(lx, ly, lz), board(lx, ly, lz), back(lx, ly, lz)); };
     this._f = {
-      sdf: (x, y, z) => Math.min(frameS(x, y, z), canvas(x, y, z)),
-      hole: (x, y, z) => frameS(x, y, z) > 0.012 && !art(x, y),   // fondo del cuadro: negro
-      tone: (x, y, z) => (frameS(x, y, z) < 0.012 ? 2 : 5)
+      sdf: (x, y, z) => Math.max(Math.min(pic(x, y, z), legS(x, y, z)), -y),
+      // el lienzo, por delante, es negro (sin letras); por detrás se ve la trasera
+      hole: (x, y, z) => { const [lx, ly, lz] = toLocal(x, y, z); return lz > -0.03 && Math.abs(lx) < W - F + 0.005 && Math.abs(ly) < H - F + 0.005 && legS(x, y, z) > 0.02; },
+      tone: (x, y, z) => { const [lx, ly, lz] = toLocal(x, y, z); return legS(x, y, z) < 0.02 ? 0 : (lz < -0.06 ? -1 : 2); }
     };
     return this._f;
   }
-}, planar({ x0: -0.9, width: 1.8, z0: -0.12, depth: 0.24, top: 1.12, height: 2.25 }));
+}, planar({ x0: -0.9, width: 1.8, z0: -1.0, depth: 1.2, top: 2.1, height: 2.2 }));
 
 /* ===== Forma: un panettone con pepitas de chocolate (puntos negros) ===== */
 const PANETTONE = {
@@ -928,56 +935,29 @@ const PANETTONE = {
   }
 };
 
-/* ===== Forma: Júpiter con sus bandas, la Gran Mancha Roja y las cuatro lunas galileanas ===== */
-const JUPITER = {
-  center: [0, 0, 0], radius: 1.0, basePitch: 0.12, roll: 0.05, fit: [3.1, 2.2], idle: 'spin', spin: [0.22, 0.9],
-  blocks(S, cw, lh) { return [{ cols: Math.max(24, Math.round(TAU * 0.85 * S / cw)), rows: Math.ceil(1.8 * S / lh) + 2 }]; },
-  glyph(px, py, pz, nx, ny, nz, g) {
-    const b = g.blocks[0];
-    let u = (Math.atan2(px, pz) + 1.0) / TAU; u -= Math.floor(u);
-    const row = Math.max(0, Math.floor((0.9 - py) / g.rowH));
-    return b.lines[row % b.lines.length][Math.min(b.T - 1, Math.floor(u * b.T))];
-  },
-  frame(t) {
-    const R = 0.85;
-    const spot = (x, y, z) => { const a = Math.atan2(x, z), lat = Math.asin(Math.max(-1, Math.min(1, y / R))); return Math.hypot((a - 0.5) / 0.32, (lat + 0.36) / 0.12) < 1; };
-    // lunas: Ío, Europa, Ganímedes y Calisto, en órbitas inclinadas como el ecuador del planeta (giran con él)
-    const P = [], moons = [[1.15, 2.6, 0], [1.38, 1.6, 2.1], [1.62, 1.0, 4.0], [1.9, 0.55, 5.3]];
-    moons.forEach(([r, w, ph], i) => {
-      const a = ph + t * w * 0.35, x = Math.cos(a) * r, z = Math.sin(a) * r;
-      P.push([x, 0, z, 5, i * 13 + 2]);
-      if (i >= 2) P.push([x + 0.06, 0, z, 4, i * 13 + 5]);         // las dos grandes, de dos letras
-    });
-    return {
-      particles: P, occluder: R,
-      sdf: (x, y, z) => Math.hypot(x, y * 1.07, z) - R,             // ligeramente achatado por los polos
-      tone: (x, y, z) => { const lat = y / R; const band = Math.sin(lat * 11.5 + 0.6); return band > 0.35 ? -2 : band < -0.55 ? 1 : 0; },
-      tint: spot
-    };
-  }
-};
-
-/* ===== Forma: dos perros, uno montado sobre el otro (silueta, sin detalle) ===== */
+/* ===== Forma: dos perros pegados, uno montado sobre el otro, con un vaivén continuo (silueta, sin detalle) ===== */
 const DOGS = Object.assign({
-  center: [0.05, 0.62, 0], radius: 1.6, fit: [2.7, 1.75], idle: 'sway', sway: [0.25, 0.25, 0.4], swing: 0.55,
+  center: [0.12, 0.62, 0], radius: 1.6, fit: [2.4, 1.75], idle: 'sway', sway: [0.25, 0.25, 0.4], swing: 0.55,
   frame(t) {
-    const wag = 0.12 * Math.sin(t * 7), wag2 = 0.12 * Math.sin(t * 6 + 1);
-    // perro de delante (de pie, mirando a la derecha)
-    const A = 0.42;                                               // desplazamiento hacia la derecha
+    const wag = 0.12 * Math.sin(t * 7);
+    const thr = 0.055 * Math.sin(t * 9);                          // el vaivén de la pelvis, de alante atrás
+    // perro de delante (de pie, mirando a la derecha); se mece un poco con el empuje
+    const A = 0.42 + thr * 0.25;
     const bodyA = ellipsoid(A, 0.66, 0, 0.5, 0.2, 0.19), chestA = ellipsoid(A + 0.38, 0.7, 0, 0.2, 0.22, 0.2);
     const neckA = rcone([A + 0.48, 0.78, 0], [A + 0.66, 1.02, 0], 0.13, 0.1), headA = ellipsoid(A + 0.74, 1.06, 0, 0.17, 0.13, 0.13), snoutA = ellipsoid(A + 0.92, 1.0, 0, 0.11, 0.065, 0.075);
     const earA = rcone([A + 0.7, 1.15, 0.06], [A + 0.66, 1.3, 0.08], 0.05, 0.02);
-    const legsA = [[A + 0.35, 0.13], [A + 0.35, -0.13], [A - 0.32, 0.13], [A - 0.32, -0.13]].map(([x, z]) => rcone([x, 0.6, z], [x + 0.02, 0.02, z], 0.08, 0.05));
-    const tailA = rcone([A - 0.48, 0.72, 0], [A - 0.62, 0.86, wag * 0.3], 0.05, 0.03);
-    // perro de detrás: erguido sobre las patas traseras, con las delanteras sobre el lomo del otro
-    const B = -0.5, tilt = 0.62, cb = Math.cos(tilt), sb = Math.sin(tilt);
+    const legsA = [[0.42 + 0.35, 0.13], [0.42 + 0.35, -0.13], [0.42 - 0.32, 0.13], [0.42 - 0.32, -0.13]].map(([x, z]) => rcone([x + thr * 0.25, 0.6, z], [x + 0.02, 0.02, z], 0.08, 0.05));
+    const tailA = rcone([A - 0.48, 0.72, 0], [A - 0.5, 0.86, 0.12], 0.05, 0.03);   // la cola, apartada
+    // perro de detrás: pegado al otro, erguido sobre las traseras, con las delanteras abrazando el lomo
+    const B = -0.12 + thr, tilt = 0.5, cb = Math.cos(tilt), sb = Math.sin(tilt);
     const rotB = (x, y) => { const dx = x - B, dy = y - 0.62; return [dx * cb + dy * sb + B, -dx * sb + dy * cb + 0.62]; };
-    const bodyB = ellipsoid(B + 0.05, 0.62, 0, 0.46, 0.19, 0.18), chestB = ellipsoid(B + 0.38, 0.66, 0, 0.19, 0.2, 0.19);
-    const neckB = rcone([B + 0.47, 0.72, 0], [B + 0.62, 0.92, 0], 0.12, 0.095), headB = ellipsoid(B + 0.7, 0.96, 0, 0.16, 0.12, 0.12), snoutB = ellipsoid(B + 0.86, 0.9, 0, 0.1, 0.06, 0.07);
-    const earB = rcone([B + 0.66, 1.04, 0.06], [B + 0.6, 1.18, 0.08], 0.05, 0.02);
-    const frontB = [0.12, -0.12].map(z => rcone([B + 0.38, 0.55, z], [B + 0.62, 0.42, z * 1.4], 0.065, 0.045));   // en reposo sobre el lomo
-    const hindB = [0.13, -0.13].map(z => rcone([B - 0.3, 0.55, z], [B - 0.28, 0.02, z], 0.085, 0.05));
-    const tailB = rcone([B - 0.4, 0.66, 0], [B - 0.6, 0.62, wag2 * 0.3], 0.05, 0.03);
+    const bodyB = ellipsoid(B + 0.02, 0.62, 0, 0.44, 0.19, 0.18), chestB = ellipsoid(B + 0.34, 0.66, 0, 0.19, 0.2, 0.19);
+    const neckB = rcone([B + 0.43, 0.72, 0], [B + 0.58, 0.92, 0], 0.12, 0.095), headB = ellipsoid(B + 0.66, 0.96, 0, 0.16, 0.12, 0.12), snoutB = ellipsoid(B + 0.82, 0.9, 0, 0.1, 0.06, 0.07);
+    const earB = rcone([B + 0.62, 1.04, 0.06], [B + 0.56, 1.18, 0.08], 0.05, 0.02);
+    const frontB = [0.17, -0.17].map(z => rcone([B + 0.34, 0.52, z], [B + 0.52, 0.28, z * 1.3], 0.065, 0.045));   // rodeando el lomo del otro
+    const hipX = B - 0.28;
+    const hindB = [0.13, -0.13].map(z => rcone([hipX, 0.5, z], [-0.5, 0.02, z], 0.085, 0.05));   // los pies, fijos en el suelo
+    const tailB = rcone([B - 0.38, 0.66, 0], [B - 0.58, 0.64, wag * 0.3], 0.05, 0.03);
     const dogA = (x, y, z) => {
       let d = smin(bodyA(x, y, z), chestA(x, y, z), 0.1); d = smin(d, neckA(x, y, z), 0.06); d = smin(d, headA(x, y, z), 0.05);
       d = smin(d, snoutA(x, y, z), 0.04); d = Math.min(d, earA(x, y, z), tailA(x, y, z));
@@ -989,12 +969,12 @@ const DOGS = Object.assign({
       let d = smin(bodyB(x, y, z), chestB(x, y, z), 0.1); d = smin(d, neckB(x, y, z), 0.06); d = smin(d, headB(x, y, z), 0.05);
       d = smin(d, snoutB(x, y, z), 0.04); d = Math.min(d, earB(x, y, z), tailB(x, y, z));
       for (const l of frontB) d = smin(d, l(x, y, z), 0.05);
-      for (const l of hindB) d = smin(d, l(x0, y0, z), 0.05);          // las traseras, apoyadas en el suelo
+      for (const l of hindB) d = smin(d, l(x0, y0, z), 0.05);
       return d;
     };
     return { sdf: (x, y, z) => Math.max(Math.min(dogA(x, y, z), dogB(x, y, z)), -y), tone: (x, y, z) => (dogA(x, y, z) < 0.02 ? 1 : 0) };
   }
-}, planar({ x0: -1.3, width: 2.7, z0: -0.4, depth: 0.8, top: 1.7, height: 1.8 }));
+}, planar({ x0: -1.0, width: 2.4, z0: -0.4, depth: 0.8, top: 1.7, height: 1.8 }));
 
 
 /* ===== Forma: eclipse de Sol. La Luna (un disco negro, sin letras) se acerca, cubre el Sol del todo
@@ -1040,6 +1020,47 @@ const ECLIPSE = {
   }
 };
 
+/* ===== Forma: una nube de tormenta de la que nace un rayo. El rayo baja, parpadea varias veces
+   y se apaga; en cada descarga cambia de camino. La nube se ilumina con cada destello. ===== */
+const STORM = Object.assign({
+  center: [0, 1.12, 0], radius: 2.0, fit: [2.9, 2.5], idle: 'sway', sway: [0.2, 0.25, 0.35], swing: 0.5,
+  frame(t) {
+    // la nube: varias masas redondeadas que se mueven muy despacio
+    const dr = 0.03 * Math.sin(t * 0.6);
+    const puffs = [[0, 1.72, 0, 0.55, 0.36, 0.42], [-0.62 + dr, 1.58, 0.05, 0.45, 0.3, 0.38], [0.64 - dr, 1.6, -0.04, 0.47, 0.31, 0.38],
+                   [-0.25, 1.98, -0.05, 0.42, 0.3, 0.36], [0.3, 1.95, 0.06, 0.4, 0.28, 0.35], [-1.02 + dr, 1.48, 0, 0.3, 0.22, 0.3],
+                   [1.05 - dr, 1.5, 0.02, 0.3, 0.22, 0.3], [0.05, 1.42, 0.12, 0.6, 0.18, 0.36]].map(b => ellipsoid(...b));
+    const cloud = group(0, 1.7, 0, 1.5, (x, y, z) => { let d = 1e9; for (const f of puffs) d = smin(d, f(x, y, z), 0.14); return d; });
+    // el rayo: cada 2,6 s una descarga nueva, con un camino en zigzag distinto
+    const PER = 2.6, n = Math.floor(t / PER), tau = t - n * PER;
+    const frac = v => v - Math.floor(v), rnd = i => frac(Math.sin((i + n * 37.1) * 127.1 + 311.7) * 43758.5453);
+    const grow = Math.min(1, tau / 0.12);                                        // baja desde la nube en un instante
+    const on = tau < 0.12 || (tau > 0.16 && tau < 0.24) || (tau > 0.32 && tau < 0.38) || (tau > 0.5 && tau < 0.62);   // parpadeo
+    const flash = on && tau < 0.7;
+    let bolt = () => 9;
+    if (tau < 0.7) {
+      const pts = [[(rnd(1) - 0.5) * 0.5, 1.38, 0]], N = 7;
+      for (let i = 1; i <= N; i++) pts.push([pts[i - 1][0] + (rnd(i + 10) - 0.5) * 0.55, 1.38 - 1.36 * i / N, (rnd(i + 20) - 0.5) * 0.1]);
+      const yEnd = 1.38 - 1.36 * grow;
+      const segs = [];
+      for (let i = 0; i < N; i++) {
+        const a = pts[i], b = pts[i + 1]; if (a[1] < yEnd) break;
+        const k = b[1] < yEnd ? (a[1] - yEnd) / (a[1] - b[1]) : 1;
+        segs.push(capsule(a, [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k], 0.055 - 0.003 * i));
+      }
+      // una rama que se separa a media altura
+      const j = 2 + Math.floor(rnd(30) * 2), bp = pts[j], side = rnd(31) < 0.5 ? -1 : 1;
+      const br1 = [bp[0] + side * 0.32, bp[1] - 0.22, 0], br2 = [br1[0] + side * 0.18, br1[1] - 0.24, 0];
+      if (bp[1] > yEnd) { segs.push(capsule(bp, br1, 0.035)); if (br1[1] > yEnd) segs.push(capsule(br1, br2, 0.028)); }
+      if (flash) bolt = (x, y, z) => { let d = 9; for (const s of segs) d = Math.min(d, s(x, y, z)); return d; };
+    }
+    return {
+      sdf: (x, y, z) => Math.min(cloud(x, y, z), bolt(x, y, z)),
+      tone: (x, y, z) => (y < 1.32 ? 5 : flash ? 1 : -1)                     // el rayo, al máximo; la nube se ilumina al caer
+    };
+  }
+}, planar({ x0: -1.4, width: 2.8, z0: -0.5, depth: 1.0, top: 2.3, height: 2.3 }));
+
 /* ===== Navegador: lienzo, animación e interacción ===== */
 (() => {
   const FONT = '13px "Fixedsys Excelsior", Fixedsys, monospace';
@@ -1047,7 +1068,7 @@ const ECLIPSE = {
   const ALPHA = [0, .42, .56, .7, .85, 1];      // niveles de brillo
   const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const TEXTS = JSON.parse(document.getElementById('ascii-text').textContent);
-  const SHAPES = { eclipse: ECLIPSE, cat: CAT, n85: N85, saturn: SATURN, archery: ARCHERY, mountains: MOUNTAINS, couch: COUCH, boxer: BOXER, trex: TREX, field: FIELD, room: ROOM, moon: MOON, europe: EUROPE, painting: PAINTING, panettone: PANETTONE, jupiter: JUPITER, dogs: DOGS };   // data-shape="cat" → CAT, etc. Añade aquí las demás formas.
+  const SHAPES = { eclipse: ECLIPSE, cat: CAT, n85: N85, saturn: SATURN, archery: ARCHERY, mountains: MOUNTAINS, couch: COUCH, boxer: BOXER, trex: TREX, field: FIELD, room: ROOM, moon: MOON, europe: EUROPE, painting: PAINTING, panettone: PANETTONE, storm: STORM, dogs: DOGS };   // data-shape="cat" → CAT, etc. Añade aquí las demás formas.
 
   /* PRETEXT: toda la medición de texto pasa por esta función. Fixedsys es monoespaciada,
      así que basta una medida. Si más adelante usas una fuente proporcional (como en la demo
